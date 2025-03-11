@@ -19,7 +19,10 @@ class FileRenamer(tk.Tk):
 
         # Set application icon (you would need to replace with actual icon path)
         if sys.platform.startswith("win"):
-            self.iconbitmap(default="icon.ico")
+            try:
+                self.iconbitmap(default="icon.ico")
+            except tk.TclError:
+                pass  # Icon file not found, continue without icon
 
         # Configure style
         self.style = ttk.Style()
@@ -130,6 +133,7 @@ class FileRenamer(tk.Tk):
 
         # For threaded operations
         self.queue = queue.Queue()
+        self.preview_data = []
         self.periodic_call()
 
     def browse_directory(self):
@@ -235,7 +239,7 @@ class FileRenamer(tk.Tk):
         self.status_var.set("Generating preview...")
 
         # Run in background thread
-        threading.Thread(target=self.preview_task).start()
+        threading.Thread(target=self.preview_task, daemon=True).start()
 
     def rename_task(self):
         """Background task for renaming files"""
@@ -282,7 +286,7 @@ class FileRenamer(tk.Tk):
         self.status_var.set("Renaming files...")
 
         # Run in background thread
-        threading.Thread(target=self.rename_task).start()
+        threading.Thread(target=self.rename_task, daemon=True).start()
 
 
 if __name__ == "__main__":
