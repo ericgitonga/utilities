@@ -45,14 +45,11 @@ class FileOperations:
         Returns:
             Number of digits for padding
         """
-        if count < 10:
-            return 1
-        elif count < 100:
-            return 2
-        elif count < 1000:
-            return 3
-        else:
-            return len(str(count))
+        # Calculate the number of digits directly by converting to string
+        if count <= 0:
+            return 1  # Default to 1 digit for invalid counts
+
+        return len(str(count))
 
     @staticmethod
     def normalize_extension(filename: str) -> str:
