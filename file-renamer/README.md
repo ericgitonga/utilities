@@ -1,17 +1,17 @@
 # Sequential File Renamer
 
-A cross-platform utility for batch renaming files with sequential numbering and consistent file extensions.
+A cross-platform utility that makes batch renaming files simple, consistent, and powerful.
 
 ## Overview
 
-Sequential File Renamer allows you to quickly rename multiple files with a consistent, sequential naming pattern. It's ideal for organizing photos, documents, or any collection of files that would benefit from a uniform naming scheme.
+Sequential File Renamer allows you to rename multiple files with a consistent naming pattern, automatically adding sequential numbering with adaptive padding. It's ideal for organizing photos, documents, and any collection of files that need a uniform naming scheme.
 
 ## Features
 
 - **Sequential Renaming with Adaptive Padding**
-  - Single digit padding for fewer than 10 files (e.g., photo_1.jpg)
-  - Double digit padding for 10-99 files (e.g., photo_01.jpg)
-  - Triple digit padding for 100+ files (e.g., photo_001.jpg)
+  - Single digit padding for fewer than 10 files (photo_1.jpg)
+  - Double digit padding for 10-99 files (photo_01.jpg)
+  - Triple digit padding for 100+ files (photo_001.jpg)
 
 - **File Selection Flexibility**
   - Process entire directories at once
@@ -33,7 +33,7 @@ Sequential File Renamer allows you to quickly rename multiple files with a consi
 
 - Python 3.6+
 - Tkinter (usually included with Python)
-- Pydantic (installed automatically by installer)
+- Pydantic (automatically installed by installer)
 
 ### Linux Installation
 
@@ -53,21 +53,29 @@ sudo ./install.sh
 
 Simply download and run the Windows executable (.exe file).
 
-### Manual Installation
+### Manual Installation Steps
 
-```bash
-# Clone the repository
-git clone https://github.com/yourusername/file-renamer.git
-cd file-renamer
+1. Clone this repository:
+   ```bash
+   git clone https://github.com/yourusername/file-renamer.git
+   ```
 
-# Install dependencies
-pip install pydantic
+2. Navigate to the directory:
+   ```bash
+   cd file-renamer
+   ```
 
-# Run the application
-python3 file_renamer.py
-```
+3. Install required dependencies:
+   ```bash
+   pip install pydantic
+   ```
 
-## How to Use
+4. Run the application:
+   ```bash
+   python3 main.py
+   ```
+
+## Usage Guide
 
 ### Step 1: Select Files
 
@@ -89,7 +97,7 @@ Choose one of two selection methods:
    - Type the text you want to use as the base name (e.g., "photo")
    - Result: "photo_1.jpg", "photo_2.jpg", etc.
 
-2. **Select Optional Settings**
+2. **Optional Settings**
    - ☑️ Include Date: Adds current date (YYYYMMDD_) as prefix
    - ☑️ Normalize Extensions: Converts uncommon extensions to standard ones
    - 🔍 Filter by Extension: Specify which file types to process (e.g., "jpg,png,txt")
@@ -136,19 +144,31 @@ photo.Tiff     →       image_2.tif
 file.TXT       →       image_3.txt
 ```
 
-## Troubleshooting
+## Code Structure
 
-### Installation Issues
+The application is organized into several modules for better maintainability:
 
-- **Command not found**: Ensure your PATH includes the bin directory
-- **Missing dependencies**: Run `pip install pydantic` manually
-- **Permission errors**: Use `sudo` for system-wide installation
+```
+file-renamer/
+│
+├── main.py                    # Main application entry point
+├── models.py                  # Data models with Pydantic
+├── file_operations.py         # File handling logic
+├── ui_components.py           # UI components
+├── __init__.py                # Package definition
+├── icon.png                   # Application icon (PNG format)
+├── icon.ico                   # Application icon (Windows format)
+├── LICENSE                    # License file
+├── README.md                  # Documentation
+├── install.sh                 # Installation script
+└── uninstall.sh               # Uninstallation script
+```
 
-### Runtime Issues
-
-- **File access errors**: Check folder/file permissions
-- **No files found**: Verify directory path or file selection
-- **Cannot rename**: Ensure files aren't open in other applications
+Each module has a specific responsibility:
+- **main.py**: Contains the main application class that ties everything together
+- **models.py**: Contains all data models using Pydantic
+- **file_operations.py**: Contains file handling and renaming logic
+- **ui_components.py**: Contains reusable UI components
 
 ## Uninstallation
 
@@ -161,6 +181,58 @@ file-renamer-uninstall
 # For system-wide installation:
 sudo file-renamer-uninstall
 ```
+
+You can also uninstall directly from the source directory:
+```bash
+cd file-renamer
+chmod +x uninstall.sh
+./uninstall.sh
+```
+
+## Building from Source
+
+### Building for Linux
+
+```bash
+# Install PyInstaller
+pip3 install pyinstaller
+
+# Navigate to the source directory
+cd file-renamer
+
+# Build the executable
+pyinstaller --name FileRenamer --windowed --onefile main.py
+```
+
+### Building for Windows
+
+```bash
+# Install PyInstaller
+pip install pyinstaller
+
+# Navigate to the source directory
+cd file-renamer
+
+# Build the executable
+pyinstaller --name FileRenamer --windowed --onefile --icon=icon.ico main.py
+```
+
+## Troubleshooting
+
+### Common Installation Issues
+
+- **Command not found**: If you get "command not found" errors, make sure your PATH includes the bin directory
+- **Missing Python/Tkinter**: Ensure Python 3 and Tkinter are installed on your system
+- **Permission errors**: Check if you need to run with sudo for system-wide installation
+- **Application doesn't appear in menu**: Try logging out and back in to refresh the application menu
+
+### Runtime Issues
+
+- **File access errors**: Ensure the application has read/write permissions for the selected directory and files
+- **UI glitches**: Some themes may not display correctly; try changing your system theme
+- **Regular expression errors**: Double-check your regex patterns for syntax errors
+- **"No files found" error**: Make sure you've either selected files or chosen a directory with files in it
+- **"Cannot rename file" error**: Check if another application has the file open or locked
 
 ## License
 

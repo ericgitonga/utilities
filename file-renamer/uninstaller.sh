@@ -20,7 +20,7 @@ echo "          FILE RENAMER UNINSTALLER                    "
 echo "======================================================"
 echo -e "${NC}"
 
-# Check if we're running from the installation directory or the bin command
+# Get the script path and directory
 SCRIPT_PATH="$(readlink -f "$0")"
 SCRIPT_DIR="$(dirname "$SCRIPT_PATH")"
 
@@ -43,7 +43,7 @@ else
     INSTALL_MODE="system"
 fi
 
-# If we're running from the installation directory, update the path
+# Check if running from the installation directory
 if [[ "$SCRIPT_DIR" == "$INSTALL_DIR" ]]; then
     echo "Running from installation directory: $INSTALL_DIR"
 elif [[ "$SCRIPT_DIR" == "$BIN_DIR" ]]; then

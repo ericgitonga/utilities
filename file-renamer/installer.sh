@@ -140,10 +140,11 @@ else
   $PIP install PyInstaller
 fi
 
-# Ensure we're in the right directory
-if [ ! -f "$SOURCE_DIR/file_renamer.py" ]; then
-    echo -e "${RED}Error: file_renamer.py not found in $SOURCE_DIR.${NC}"
-    echo "This script must be run from within the file-renamer directory."
+# Ensure we're in the right directory and have the required files
+if [ ! -f "$SOURCE_DIR/main.py" ] || [ ! -f "$SOURCE_DIR/models.py" ] || [ ! -f "$SOURCE_DIR/file_operations.py" ] || [ ! -f "$SOURCE_DIR/ui_components.py" ]; then
+    echo -e "${RED}Error: Required application files missing in $SOURCE_DIR.${NC}"
+    echo "This script must be run from within the file-renamer directory with all necessary files."
+    echo "Required files: main.py, models.py, file_operations.py, ui_components.py"
     exit 1
 fi
 
@@ -152,13 +153,14 @@ echo "Copying files to $INSTALL_DIR..."
 cp -r "$SOURCE_DIR"/* "$INSTALL_DIR/"
 
 # Make sure the main script is executable
-chmod +x "$INSTALL_DIR/file_renamer.py"
+chmod +x "$INSTALL_DIR/main.py"
 
 # Create a launch script in the bin directory
 echo "Creating launcher script..."
 cat > "$BIN_DIR/file-renamer" << EOF
 #!/bin/bash
-cd "$INSTALL_DIR" && $PYTHON file_renamer.py "\$@"
+cd "$INSTALL_DIR" && $PYTHON main.py "\$@"
+EOF
 EOF
 chmod +x "$BIN_DIR/file-renamer"
 
@@ -306,11 +308,17 @@ echo "Thank you for using File Renamer!"
 echo "======================================================"
 EOF
 
-# Make the uninstaller executable
+# Make the uninstaller executable and create symlink
 chmod +x "$INSTALL_DIR/uninstall.sh"
 
 # Create a symlink to the uninstaller in bin directory
 ln -sf "$INSTALL_DIR/uninstall.sh" "$BIN_DIR/file-renamer-uninstall"
+
+# Remove any redundant uninstaller files that might exist from previous versions
+if [ -f "$INSTALL_DIR/uninstaller.sh" ]; then
+    echo "Removing redundant uninstaller.sh file..."
+    rm -f "$INSTALL_DIR/uninstaller.sh"
+fi
 
 # Build with PyInstaller (optional)
 echo "Do you want to create a standalone executable with PyInstaller? (y/n)"
@@ -334,7 +342,7 @@ if [ "$BUILD_CHOICE" = "y" ] || [ "$BUILD_CHOICE" = "Y" ]; then
         ICON_OPTION=""
     fi
     
-    PyInstaller --name FileRenamer --windowed --onefile $ICON_OPTION --hidden-import=pydantic file_renamer.py
+    PyInstaller --name FileRenamer --windowed --onefile $ICON_OPTION --hidden-import=pydantic main.py
     
     # Update the launcher to use the executable instead
     if [ -f "$INSTALL_DIR/dist/FileRenamer" ]; then
@@ -349,6 +357,13 @@ EOF
         sed -i "s|Exec=$BIN_DIR/file-renamer|Exec=$INSTALL_DIR/dist/FileRenamer|" "$DESKTOP_DIR/file-renamer.desktop"
     else
         echo -e "${RED}Failed to build executable. Will use Python script instead.${NC}"
+        
+        # Make sure we have a proper launcher for the Python script
+        cat > "$BIN_DIR/file-renamer" << EOF
+#!/bin/bash
+cd "$INSTALL_DIR" && $PYTHON main.py "\$@"
+EOF
+        chmod +x "$BIN_DIR/file-renamer"
     fi
 fi
 
