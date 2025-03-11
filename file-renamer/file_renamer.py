@@ -21,6 +21,7 @@ class RenameOptions(BaseModel):
     pattern_text: str = Field(default="")
     include_date: bool = Field(default=False)
     extension_filter: str = Field(default="")
+    normalize_extensions: bool = Field(default=True)  # New option to normalize extensions
 
     @validator("extension_filter")
     def validate_extension_filter(cls, v):
@@ -232,6 +233,15 @@ class FileRenamer(tk.Tk):
             command=self._on_include_date_changed,
         ).grid(row=1, column=0, columnspan=2, padx=5, pady=5, sticky=tk.W)
 
+        # Normalize extensions option
+        self.normalize_extensions_var = tk.BooleanVar(value=self.config.options.normalize_extensions)
+        ttk.Checkbutton(
+            options_frame,
+            text="Normalize File Extensions (.jpeg → .jpg, etc.)",
+            variable=self.normalize_extensions_var,
+            command=self._on_normalize_extensions_changed,
+        ).grid(row=1, column=2, columnspan=2, padx=5, pady=5, sticky=tk.W)
+
         # Extension filter
         self.extension_filter_var = tk.StringVar(value=self.config.options.extension_filter)
         ttk.Label(options_frame, text="Filter by Extension:").grid(row=2, column=0, padx=5, pady=5, sticky=tk.W)
@@ -251,6 +261,10 @@ class FileRenamer(tk.Tk):
     def _on_include_date_changed(self):
         """Update config when include date changes"""
         self.config.options.include_date = self.include_date_var.get()
+
+    def _on_normalize_extensions_changed(self):
+        """Update config when normalize extensions option changes"""
+        self.config.options.normalize_extensions = self.normalize_extensions_var.get()
 
     def _on_extension_filter_changed(self, *args):
         """Update config when extension filter changes"""
@@ -357,8 +371,35 @@ class FileRenamer(tk.Tk):
         else:
             return len(str(count))
 
+    def _normalize_extension(self, filename: str) -> str:
+        """Normalize file extensions to their more common forms"""
+        name, ext = os.path.splitext(filename)
+        ext = ext.lower()
+
+        # Dictionary of less common extensions and their normalized forms
+        extension_map = {
+            ".jpeg": ".jpg",
+            ".tiff": ".tif",
+            ".htm": ".html",
+            ".mpeg": ".mpg",
+            ".mov": ".mp4",
+            ".text": ".txt",
+            ".midi": ".mid",
+            ".markdown": ".md",
+            ".png2": ".png",
+        }
+
+        # Return normalized filename if extension is in our map
+        if ext in extension_map:
+            return name + extension_map[ext]
+        return filename
+
     def generate_new_filename(self, filename: str, index: int = 0, total_files: int = 0) -> str:
         """Generate new filename based on sequential pattern"""
+        # First normalize the extension if enabled
+        if self.config.options.normalize_extensions:
+            filename = self._normalize_extension(filename)
+
         file_name, file_ext = os.path.splitext(filename)
 
         # Get current date if needed
