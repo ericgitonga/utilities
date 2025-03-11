@@ -1,4 +1,4 @@
-# File Renamer
+# Sequential File Renamer
 
 A cross-platform utility for batch renaming files with sequential numbering and consistent file extensions.
 
@@ -18,9 +18,10 @@ Sequential File Renamer allows you to quickly rename multiple files with a consi
   - Select specific files to rename
   - Work with files across different folders
 
-- **Extension Normalization**
-  - Automatically converts non-standard extensions to common formats
-  - Example: .jpeg → .jpg, .tiff → .tif, .markdown → .md
+- **Extension Handling**
+  - All extensions automatically converted to lowercase
+  - Normalization of non-standard extensions to common formats
+  - Example: .JPEG → .jpg, .Tiff → .tif, .Markdown → .md
 
 - **Additional Options**
   - Add date prefix in YYYYMMDD format
@@ -127,11 +128,12 @@ DSC_9876.jpg   →       20240311_vacation_1.jpg
 IMG_2468.jpg   →       20240311_vacation_2.jpg
 ```
 
-**With Extension Normalization:**
+**With Extension Normalization and Case Conversion:**
 ```
 Before:                After (base name "image"):
-picture.jpeg   →       image_1.jpg
-photo.tiff     →       image_2.tif
+picture.JPEG   →       image_1.jpg
+photo.Tiff     →       image_2.tif
+file.TXT       →       image_3.txt
 ```
 
 ## Troubleshooting

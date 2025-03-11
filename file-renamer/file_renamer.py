@@ -372,9 +372,9 @@ class FileRenamer(tk.Tk):
             return len(str(count))
 
     def _normalize_extension(self, filename: str) -> str:
-        """Normalize file extensions to their more common forms"""
+        """Normalize file extensions to their more common forms and ensure lowercase"""
         name, ext = os.path.splitext(filename)
-        ext = ext.lower()
+        ext = ext.lower()  # Always convert extension to lowercase
 
         # Dictionary of less common extensions and their normalized forms
         extension_map = {
@@ -392,15 +392,18 @@ class FileRenamer(tk.Tk):
         # Return normalized filename if extension is in our map
         if ext in extension_map:
             return name + extension_map[ext]
-        return filename
+        return name + ext  # Return with lowercase extension even if not in map
 
     def generate_new_filename(self, filename: str, index: int = 0, total_files: int = 0) -> str:
         """Generate new filename based on sequential pattern"""
-        # First normalize the extension if enabled
+        # First normalize the extension if enabled (which also ensures lowercase)
         if self.config.options.normalize_extensions:
-            filename = self._normalize_extension(filename)
-
-        file_name, file_ext = os.path.splitext(filename)
+            normalized = self._normalize_extension(filename)
+            file_name, file_ext = os.path.splitext(normalized)
+        else:
+            # Even if not normalizing, still ensure lowercase extension
+            file_name, file_ext = os.path.splitext(filename)
+            file_ext = file_ext.lower()
 
         # Get current date if needed
         date_prefix = ""
