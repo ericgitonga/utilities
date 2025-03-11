@@ -1,6 +1,5 @@
 #!/usr/bin/env python3
 import os
-import re
 import sys
 import tkinter as tk
 from tkinter import ttk, filedialog, messagebox
@@ -14,18 +13,13 @@ from pydantic import BaseModel, Field, validator
 
 # Define enums and models
 class PatternType(str, Enum):
-    PREFIX = "prefix"
-    SUFFIX = "suffix"
-    REPLACE = "replace"
-    REGEX = "regex"
+    SEQUENCE = "sequence"  # Sequential renaming pattern
 
 
 class RenameOptions(BaseModel):
-    pattern_type: PatternType = Field(default=PatternType.PREFIX)
+    pattern_type: PatternType = Field(default=PatternType.SEQUENCE)
     pattern_text: str = Field(default="")
-    replace_text: str = Field(default="")
     include_date: bool = Field(default=False)
-    include_numbers: bool = Field(default=False)
     extension_filter: str = Field(default="")
 
     @validator("extension_filter")
@@ -217,54 +211,16 @@ class FileRenamer(tk.Tk):
         options_frame = ttk.LabelFrame(parent, text="Renaming Options")
         options_frame.pack(fill=tk.X, padx=5, pady=5)
 
-        # Rename pattern options
-        ttk.Label(options_frame, text="Rename Pattern:").grid(row=0, column=0, padx=5, pady=5, sticky=tk.W)
-
-        self.pattern_type_var = tk.StringVar(value=self.config.options.pattern_type)
-
-        ttk.Radiobutton(
-            options_frame,
-            text="Add Prefix",
-            variable=self.pattern_type_var,
-            value=PatternType.PREFIX,
-            command=self._on_pattern_type_changed,
-        ).grid(row=0, column=1, padx=5, pady=5, sticky=tk.W)
-
-        ttk.Radiobutton(
-            options_frame,
-            text="Add Suffix",
-            variable=self.pattern_type_var,
-            value=PatternType.SUFFIX,
-            command=self._on_pattern_type_changed,
-        ).grid(row=0, column=2, padx=5, pady=5, sticky=tk.W)
-
-        ttk.Radiobutton(
-            options_frame,
-            text="Replace Text",
-            variable=self.pattern_type_var,
-            value=PatternType.REPLACE,
-            command=self._on_pattern_type_changed,
-        ).grid(row=0, column=3, padx=5, pady=5, sticky=tk.W)
-
-        ttk.Radiobutton(
-            options_frame,
-            text="Regular Expression",
-            variable=self.pattern_type_var,
-            value=PatternType.REGEX,
-            command=self._on_pattern_type_changed,
-        ).grid(row=0, column=4, padx=5, pady=5, sticky=tk.W)
-
-        # Text inputs for pattern
-        ttk.Label(options_frame, text="Text:").grid(row=1, column=0, padx=5, pady=5, sticky=tk.W)
+        # Text input for base name
+        ttk.Label(options_frame, text="Base Name:").grid(row=0, column=0, padx=5, pady=5, sticky=tk.W)
         self.pattern_text_var = tk.StringVar()
         ttk.Entry(options_frame, textvariable=self.pattern_text_var, width=30).grid(
-            row=1, column=1, columnspan=2, padx=5, pady=5, sticky=tk.W + tk.E
+            row=0, column=1, columnspan=2, padx=5, pady=5, sticky=tk.W + tk.E
         )
 
-        ttk.Label(options_frame, text="Replace With:").grid(row=1, column=3, padx=5, pady=5, sticky=tk.W)
-        self.replace_text_var = tk.StringVar()
-        ttk.Entry(options_frame, textvariable=self.replace_text_var, width=30).grid(
-            row=1, column=4, padx=5, pady=5, sticky=tk.W + tk.E
+        # Help text for sequential pattern
+        ttk.Label(options_frame, text="(Files will be renamed to basename_1.ext, basename_2.ext, etc.)").grid(
+            row=0, column=3, columnspan=2, padx=5, pady=5, sticky=tk.W
         )
 
         # Additional options
@@ -274,51 +230,27 @@ class FileRenamer(tk.Tk):
             text="Include Date (YYYYMMDD)",
             variable=self.include_date_var,
             command=self._on_include_date_changed,
-        ).grid(row=2, column=0, columnspan=2, padx=5, pady=5, sticky=tk.W)
+        ).grid(row=1, column=0, columnspan=2, padx=5, pady=5, sticky=tk.W)
 
-        self.include_numbers_var = tk.BooleanVar(value=self.config.options.include_numbers)
-        ttk.Checkbutton(
-            options_frame,
-            text="Include Numbering",
-            variable=self.include_numbers_var,
-            command=self._on_include_numbers_changed,
-        ).grid(row=2, column=2, columnspan=2, padx=5, pady=5, sticky=tk.W)
-
+        # Extension filter
         self.extension_filter_var = tk.StringVar(value=self.config.options.extension_filter)
-        ttk.Label(options_frame, text="Filter by Extension:").grid(row=3, column=0, padx=5, pady=5, sticky=tk.W)
+        ttk.Label(options_frame, text="Filter by Extension:").grid(row=2, column=0, padx=5, pady=5, sticky=tk.W)
         ttk.Entry(options_frame, textvariable=self.extension_filter_var, width=10).grid(
-            row=3, column=1, padx=5, pady=5, sticky=tk.W
+            row=2, column=1, padx=5, pady=5, sticky=tk.W
         )
-        ttk.Label(options_frame, text="(e.g., jpg,png,txt)").grid(row=3, column=2, padx=5, pady=5, sticky=tk.W)
+        ttk.Label(options_frame, text="(e.g., jpg,png,txt)").grid(row=2, column=2, padx=5, pady=5, sticky=tk.W)
 
         # Connect text change events
         self.pattern_text_var.trace_add("write", self._on_pattern_text_changed)
-        self.replace_text_var.trace_add("write", self._on_replace_text_changed)
         self.extension_filter_var.trace_add("write", self._on_extension_filter_changed)
-
-    def _on_pattern_type_changed(self):
-        """Update config when pattern type changes"""
-        try:
-            self.config.options.pattern_type = PatternType(self.pattern_type_var.get())
-        except (ValueError, KeyError):
-            self.config.options.pattern_type = PatternType.PREFIX
-            self.pattern_type_var.set(PatternType.PREFIX)
 
     def _on_pattern_text_changed(self, *args):
         """Update config when pattern text changes"""
         self.config.options.pattern_text = self.pattern_text_var.get()
 
-    def _on_replace_text_changed(self, *args):
-        """Update config when replace text changes"""
-        self.config.options.replace_text = self.replace_text_var.get()
-
     def _on_include_date_changed(self):
         """Update config when include date changes"""
         self.config.options.include_date = self.include_date_var.get()
-
-    def _on_include_numbers_changed(self):
-        """Update config when include numbers changes"""
-        self.config.options.include_numbers = self.include_numbers_var.get()
 
     def _on_extension_filter_changed(self, *args):
         """Update config when extension filter changes"""
@@ -414,8 +346,19 @@ class FileRenamer(tk.Tk):
 
         return files
 
-    def generate_new_filename(self, filename: str, index: int = 0) -> str:
-        """Generate new filename based on selected options"""
+    def _determine_padding_digits(self, count: int) -> int:
+        """Determine the number of digits needed for padding based on file count"""
+        if count < 10:
+            return 1
+        elif count < 100:
+            return 2
+        elif count < 1000:
+            return 3
+        else:
+            return len(str(count))
+
+    def generate_new_filename(self, filename: str, index: int = 0, total_files: int = 0) -> str:
+        """Generate new filename based on sequential pattern"""
         file_name, file_ext = os.path.splitext(filename)
 
         # Get current date if needed
@@ -423,29 +366,14 @@ class FileRenamer(tk.Tk):
         if self.config.options.include_date:
             date_prefix = datetime.now().strftime("%Y%m%d_")
 
-        # Get numbering if needed
-        number_str = ""
-        if self.config.options.include_numbers:
-            number_str = f"_{index+1:03d}"
+        # Get base name from user input
+        base_name = self.config.options.pattern_text
 
-        # Apply renaming pattern
-        pattern_type = self.config.options.pattern_type
-        pattern_text = self.config.options.pattern_text
+        # Determine padding digits based on total file count
+        padding = self._determine_padding_digits(total_files)
 
-        if pattern_type == PatternType.PREFIX:
-            new_name = f"{date_prefix}{pattern_text}{file_name}{number_str}{file_ext}"
-        elif pattern_type == PatternType.SUFFIX:
-            new_name = f"{date_prefix}{file_name}{pattern_text}{number_str}{file_ext}"
-        elif pattern_type == PatternType.REPLACE:
-            replaced_name = file_name.replace(pattern_text, self.config.options.replace_text)
-            new_name = f"{date_prefix}{replaced_name}{number_str}{file_ext}"
-        elif pattern_type == PatternType.REGEX:
-            try:
-                replaced_name = re.sub(pattern_text, self.config.options.replace_text, file_name)
-                new_name = f"{date_prefix}{replaced_name}{number_str}{file_ext}"
-            except re.error as e:
-                messagebox.showerror("Regex Error", f"Invalid regular expression: {str(e)}")
-                new_name = filename
+        # Create new filename with sequential pattern
+        new_name = f"{date_prefix}{base_name}_{index+1:0{padding}d}{file_ext}"
 
         return new_name
 
@@ -454,8 +382,11 @@ class FileRenamer(tk.Tk):
         files = self.get_file_list()
         preview_data: List[RenamePreview] = []
 
+        # Calculate total files for determining padding in sequence mode
+        total_files = len(files)
+
         for i, filename in enumerate(files):
-            new_name = self.generate_new_filename(filename, i)
+            new_name = self.generate_new_filename(filename, i, total_files)
             preview_data.append(RenamePreview(original_name=filename, new_name=new_name))
 
         self.preview_data = preview_data
@@ -484,11 +415,14 @@ class FileRenamer(tk.Tk):
         renamed_count = 0
         errors: List[str] = []
 
+        # Calculate total files for determining padding in sequence mode
+        total_files = len(files)
+
         is_selected_mode = self.selection_mode_var.get() == "selected" and self.config.selected_files
 
         for i, filename in enumerate(files):
             try:
-                new_name = self.generate_new_filename(filename, i)
+                new_name = self.generate_new_filename(filename, i, total_files)
 
                 # Skip if names are the same
                 if filename == new_name:

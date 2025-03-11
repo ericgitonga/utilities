@@ -1,23 +1,33 @@
-# A cross-platform utility to easily rename multiple files using patterns, regular expressions, and more.
+# File Renamer
+
+A cross-platform utility for batch renaming files with sequential numbering and adaptive padding.
+
+## Overview
+
+Sequential File Renamer allows you to easily rename multiple files with a consistent naming pattern. It's perfect for organizing photos, documents, or any collection of files that need sequential naming.
 
 ## Features
 
+- **Simple Sequential Renaming**: Rename files to `basename_1.jpg`, `basename_2.jpg`, etc.
+- **Adaptive Digit Padding**: Automatically adjusts padding based on file count
+  - For 1-9 files: Single digit (e.g., photo_1.jpg)
+  - For 10-99 files: Double digits (e.g., photo_01.jpg)
+  - For 100-999 files: Triple digits (e.g., photo_001.jpg)
 - **Multiple Selection Methods**: 
   - Process an entire directory at once
   - Select specific files to rename
   - Mix files from different folders
-
 - **Additional Options**:
   - Include date stamps (YYYYMMDD format)
-  - Add sequential numbering
   - Filter files by extension
 
-- **User-Friendly GUI**:
-  - Preview changes before applying
-  - Easy directory selection
-  - Status updates during operations
-
 ## Installation
+
+### Prerequisites
+
+- Python 3.6 or higher
+- Tkinter (usually included with Python)
+- Pydantic (automatically installed by the installer)
 
 ### Linux
 
@@ -39,19 +49,6 @@ chmod +x install.sh
 sudo ./install.sh
 ```
 
-#### What the Installer Does
-
-The installer performs these steps:
-1. Checks for and installs prerequisites (Python, pip, Tkinter)
-2. Creates the installation directory structure
-3. Copies the application files
-4. Creates a launcher script in the appropriate bin directory
-5. Creates a desktop entry for application menus
-6. Installs an uninstaller script and creates a command to run it
-7. Optionally builds a standalone executable with PyInstaller
-
-#### Uninstalling
-
 To uninstall:
 ```bash
 file-renamer-uninstall
@@ -62,25 +59,10 @@ Or for system-wide installations:
 sudo file-renamer-uninstall
 ```
 
-You can also uninstall directly from the source directory:
-```bash
-cd file-renamer
-chmod +x uninstall.sh
-./uninstall.sh
-```
-
 ### Windows
 
 1. Download the Windows executable (.exe file)
 2. Run the executable to start the application
-
-## Manual Installation
-
-### Prerequisites
-
-- Python 3.6 or higher
-- Tkinter (usually included with Python)
-- Pydantic (automatically installed by the installer)
 
 ### Manual Installation Steps
 
@@ -104,25 +86,7 @@ chmod +x uninstall.sh
    python3 file_renamer.py
    ```
 
-## Directory Structure
-
-```
-file-renamer/
-│
-├── file_renamer.py            # Main application script
-├── icon.png                   # Application icon (PNG format)
-├── icon.ico                   # Application icon (Windows format)
-├── LICENSE                    # License file
-├── README.md                  # Documentation
-├── install.sh                 # Installation script
-└── uninstall.sh               # Uninstallation script (optional, also created during installation)
-```
-
-The install.sh and uninstall.sh scripts are designed to be run from within the file-renamer directory.
-
 ## Usage Guide
-
-The File Renamer application offers two ways to select files for renaming:
 
 ### File Selection Methods
 
@@ -139,17 +103,12 @@ The File Renamer application offers two ways to select files for renaming:
 
 ### Renaming Options
 
-Once you've selected your files:
+1. **Enter a Base Name**:
+   - Type the text you want to use as the base name for all files
+   - Example: "photo" will result in "photo_1.jpg", "photo_2.jpg", etc.
 
-1. **Choose a renaming pattern**:
-   - Add Prefix: Adds text to the beginning of filenames
-   - Add Suffix: Adds text before the extension
-   - Replace Text: Substitutes specific text with new text
-   - Regular Expression: Uses regex patterns for advanced renaming
-
-2. **Set additional options**:
+2. **Optional Settings**:
    - Include Date: Adds the current date in YYYYMMDD format
-   - Include Numbering: Adds sequential numbers to files
    - Filter by Extension: Enter comma-separated extensions (e.g., jpg,png,txt)
      Note: Extension filter only applies in directory mode
 
@@ -157,126 +116,35 @@ Once you've selected your files:
 
 4. **Apply changes**: When satisfied, click "Rename Files" to apply the changes
 
-## Building from Source
+## Examples
 
-### Building for Linux
-
-```bash
-# Install PyInstaller
-pip3 install pyinstaller
-
-# Navigate to the source directory
-cd file-renamer
-
-# Build the executable
-pyinstaller --name FileRenamer --windowed --onefile file_renamer.py
+```
+Original files:          After Sequential Renaming (base name "pic"):
+IMG_1234.jpg  →         pic_1.jpg
+DSC_9876.jpg  →         pic_2.jpg
+photo-123.jpg →         pic_3.jpg
 ```
 
-### Building for Windows
-
-```bash
-# Install PyInstaller
-pip install pyinstaller
-
-# Navigate to the source directory
-cd file-renamer
-
-# Build the executable
-pyinstaller --name FileRenamer --windowed --onefile --icon=icon.ico file_renamer.py
+With date option enabled:
+```
+Original files:          After Sequential Renaming (base name "photo"):
+IMG_1234.jpg  →         20240311_photo_1.jpg
+DSC_9876.jpg  →         20240311_photo_2.jpg
+photo-123.jpg →         20240311_photo_3.jpg
 ```
 
-## Advanced Packaging (Linux)
+## Working with Files from Different Folders
 
-### Creating DEB Package (Debian/Ubuntu)
+You can select files from different folders:
 
-1. Install necessary tools:
-   ```bash
-   sudo apt-get install build-essential debhelper dh-python
-   ```
+1. Click "Select Files..." and browse to your first folder
+2. Select the files you want to rename
+3. With the file selection dialog still open, navigate to a different folder
+4. Hold Ctrl (or Command on Mac) and select additional files
+5. Click "Open" to confirm your selection
+6. All selected files will be shown and can be renamed together
 
-2. Create a Debian packaging structure (basic steps):
-   ```bash
-   mkdir -p debian/DEBIAN
-   cat > debian/DEBIAN/control << EOF
-   Package: file-renamer
-   Version: 1.0
-   Section: utils
-   Priority: optional
-   Architecture: all
-   Depends: python3, python3-tk
-   Maintainer: Your Name <your.email@example.com>
-   Description: File Renaming Utility
-    A cross-platform utility to easily rename multiple files.
-   EOF
-   ```
-
-### Creating RPM Package (Fedora/RHEL)
-
-1. Install necessary tools:
-   ```bash
-   sudo dnf install rpm-build rpmdevtools
-   ```
-
-2. Set up RPM build environment:
-   ```bash
-   rpmdev-setuptree
-   ```
-
-3. Create an RPM spec file (basic example):
-   ```bash
-   cat > ~/rpmbuild/SPECS/file-renamer.spec << EOF
-   Name:           file-renamer
-   Version:        1.0
-   Release:        1%{?dist}
-   Summary:        File Renaming Utility
-   
-   License:        MIT
-   URL:            https://github.com/yourusername/file-renamer
-   Source0:        %{name}-%{version}.tar.gz
-   
-   BuildArch:      noarch
-   Requires:       python3, python3-tkinter
-   
-   %description
-   A cross-platform utility to easily rename multiple files using patterns, 
-   regular expressions, and more.
-   
-   %prep
-   %setup -q
-   
-   %install
-   mkdir -p %{buildroot}/opt/file-renamer
-   cp -a * %{buildroot}/opt/file-renamer/
-   
-   mkdir -p %{buildroot}%{_bindir}
-   cat > %{buildroot}%{_bindir}/file-renamer << EOF2
-   #!/bin/bash
-   cd /opt/file-renamer && python3 file_renamer.py "\$@"
-   EOF2
-   chmod +x %{buildroot}%{_bindir}/file-renamer
-   
-   mkdir -p %{buildroot}%{_datadir}/applications
-   cat > %{buildroot}%{_datadir}/applications/file-renamer.desktop << EOF2
-   [Desktop Entry]
-   Name=File Renamer
-   Comment=Rename files easily
-   Exec=/usr/bin/file-renamer
-   Icon=/opt/file-renamer/icon.png
-   Terminal=false
-   Type=Application
-   Categories=Utility;FileTools;
-   EOF2
-   
-   %files
-   %attr(755, root, root) %{_bindir}/file-renamer
-   %{_datadir}/applications/file-renamer.desktop
-   /opt/file-renamer
-   
-   %changelog
-   * Wed Mar 11 2025 Your Name <your.email@example.com> - 1.0-1
-   - Initial package
-   EOF
-   ```
+Note: When renaming files from different folders, each file will remain in its original folder but will be renamed according to your pattern.
 
 ## Troubleshooting
 
@@ -289,9 +157,9 @@ pyinstaller --name FileRenamer --windowed --onefile --icon=icon.ico file_renamer
 
 ### Runtime Issues
 
-- **File access errors**: Ensure the application has read/write permissions for the selected directory
-- **UI glitches**: Some themes may not display correctly; try changing your system theme
-- **Regular expression errors**: Double-check your regex patterns for syntax errors
+- **File access errors**: Ensure the application has read/write permissions for the selected directory and files
+- **No files found**: Make sure you've either selected files or chosen a directory with files in it
+- **Cannot rename file**: Check if another application has the file open or locked
 
 ## License
 
