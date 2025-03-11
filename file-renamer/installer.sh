@@ -102,10 +102,43 @@ else
     fi
 fi
 
+# Check for required Python packages
+echo "Checking for required Python packages..."
+
+# Function to check if a Python package is installed
+check_package() {
+  $PYTHON -c "import $1" 2>/dev/null
+  return $?
+}
+
+# Check for Pydantic
+if check_package "pydantic"; then
+  echo -e "${GREEN}Pydantic found!${NC}"
+else
+  echo -e "${YELLOW}Pydantic not found. Will install it...${NC}"
+fi
+
+# Check for other required packages
+REQUIRED_PACKAGES=("pydantic" "enum" "typing")
+MISSING_PACKAGES=()
+
+for pkg in "${REQUIRED_PACKAGES[@]}"; do
+  if ! check_package "$pkg"; then
+    MISSING_PACKAGES+=("$pkg")
+  fi
+done
+
 # Install required Python packages
-echo "Installing required Python packages..."
-$PIP install --upgrade pip
-$PIP install PyInstaller
+if [ ${#MISSING_PACKAGES[@]} -gt 0 ]; then
+  echo "Installing required Python packages: ${MISSING_PACKAGES[*]}"
+  $PIP install --upgrade pip
+  $PIP install "${MISSING_PACKAGES[@]}" PyInstaller
+else
+  echo -e "${GREEN}All required packages are installed!${NC}"
+  # Still make sure PyInstaller is available for optional step
+  $PIP install --upgrade pip
+  $PIP install PyInstaller
+fi
 
 # Ensure we're in the right directory
 if [ ! -f "$SOURCE_DIR/file_renamer.py" ]; then
@@ -301,7 +334,7 @@ if [ "$BUILD_CHOICE" = "y" ] || [ "$BUILD_CHOICE" = "Y" ]; then
         ICON_OPTION=""
     fi
     
-    PyInstaller --name FileRenamer --windowed --onefile $ICON_OPTION file_renamer.py
+    PyInstaller --name FileRenamer --windowed --onefile $ICON_OPTION --hidden-import=pydantic file_renamer.py
     
     # Update the launcher to use the executable instead
     if [ -f "$INSTALL_DIR/dist/FileRenamer" ]; then

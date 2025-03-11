@@ -49,6 +49,7 @@ class RenamePreview(BaseModel):
 
 class AppConfig(BaseModel):
     dir_path: str = Field(default="")
+    selected_files: List[str] = Field(default_factory=list)
     options: RenameOptions = Field(default_factory=RenameOptions)
 
 
@@ -81,11 +82,13 @@ class FileRenamer(tk.Tk):
         self.style = ttk.Style()
         self.style.theme_use("clam")  # Use a cross-platform theme
 
+        # For threaded operations
+        self.queue: queue.Queue = queue.Queue()
+
         # Create GUI elements
         self._create_main_interface()
 
-        # For threaded operations
-        self.queue: queue.Queue = queue.Queue()
+        # Start periodic check for queue
         self.periodic_call()
 
     def _create_main_interface(self):
@@ -113,22 +116,101 @@ class FileRenamer(tk.Tk):
         self.status_bar.pack(side=tk.BOTTOM, fill=tk.X)
 
     def _create_directory_frame(self, parent):
-        """Create the directory selection UI"""
-        dir_frame = ttk.LabelFrame(parent, text="Directory Selection")
+        """Create the directory and file selection UI"""
+        dir_frame = ttk.LabelFrame(parent, text="File Selection")
         dir_frame.pack(fill=tk.X, padx=5, pady=5)
 
+        # Directory path
         self.dir_path_var = tk.StringVar()
-        self.dir_path_var.trace_add("write", self._on_dir_path_changed)
 
         ttk.Label(dir_frame, text="Directory:").grid(row=0, column=0, padx=5, pady=5, sticky=tk.W)
         ttk.Entry(dir_frame, textvariable=self.dir_path_var, width=50).grid(
             row=0, column=1, padx=5, pady=5, sticky=tk.W + tk.E
         )
-        ttk.Button(dir_frame, text="Browse...", command=self.browse_directory).grid(row=0, column=2, padx=5, pady=5)
+        ttk.Button(dir_frame, text="Browse Directory...", command=self.browse_directory).grid(
+            row=0, column=2, padx=5, pady=5
+        )
+
+        # File selection
+        ttk.Label(dir_frame, text="Selected Files:").grid(row=1, column=0, padx=5, pady=5, sticky=tk.W)
+        self.selected_files_var = tk.StringVar()
+        self.selected_files_var.set("No files selected")
+        ttk.Entry(dir_frame, textvariable=self.selected_files_var, width=50, state="readonly").grid(
+            row=1, column=1, padx=5, pady=5, sticky=tk.W + tk.E
+        )
+        ttk.Button(dir_frame, text="Select Files...", command=self.browse_files).grid(row=1, column=2, padx=5, pady=5)
+
+        # Radio buttons for file selection mode
+        self.selection_mode_var = tk.StringVar(value="directory")
+
+        mode_frame = ttk.Frame(dir_frame)
+        mode_frame.grid(row=2, column=0, columnspan=3, padx=5, pady=5, sticky=tk.W)
+
+        ttk.Radiobutton(
+            mode_frame,
+            text="Process entire directory",
+            variable=self.selection_mode_var,
+            value="directory",
+            command=self._on_selection_mode_changed,
+        ).pack(side=tk.LEFT, padx=5)
+
+        ttk.Radiobutton(
+            mode_frame,
+            text="Process selected files only",
+            variable=self.selection_mode_var,
+            value="selected",
+            command=self._on_selection_mode_changed,
+        ).pack(side=tk.LEFT, padx=5)
+
+        # Connect directory path change event
+        self.dir_path_var.trace_add("write", self._on_dir_path_changed)
 
     def _on_dir_path_changed(self, *args):
         """Update config when directory path changes"""
         self.config.dir_path = self.dir_path_var.get()
+
+    def _on_selection_mode_changed(self):
+        """Handle changes to the file selection mode"""
+        mode = self.selection_mode_var.get()
+        if mode == "directory":
+            # Clear selected files when switching to directory mode
+            self.config.selected_files = []
+            self.selected_files_var.set("No files selected")
+        elif mode == "selected" and not self.config.selected_files:
+            # If switching to selected mode but no files are selected
+            self.selected_files_var.set("No files selected")
+        self.generate_preview()
+
+    def _update_selected_files_display(self):
+        """Update the display of selected files"""
+        if not self.config.selected_files:
+            self.selected_files_var.set("No files selected")
+        elif len(self.config.selected_files) == 1:
+            self.selected_files_var.set(os.path.basename(self.config.selected_files[0]))
+        else:
+            self.selected_files_var.set(f"{len(self.config.selected_files)} files selected")
+
+    def browse_files(self):
+        """Open file browser dialog for selecting multiple files"""
+        files = filedialog.askopenfilenames(
+            title="Select Files to Rename",
+            initialdir=self.config.dir_path if self.config.dir_path else os.path.expanduser("~"),
+        )
+
+        if files:
+            # Get the directory of the first selected file
+            self.config.dir_path = os.path.dirname(files[0])
+            self.dir_path_var.set(self.config.dir_path)
+
+            # Update selected files
+            self.config.selected_files = list(files)
+            self._update_selected_files_display()
+
+            # Switch to selected files mode
+            self.selection_mode_var.set("selected")
+
+            # Generate preview with the selected files
+            self.generate_preview()
 
     def _create_options_frame(self, parent):
         """Create the renaming options UI"""
@@ -139,58 +221,82 @@ class FileRenamer(tk.Tk):
         ttk.Label(options_frame, text="Rename Pattern:").grid(row=0, column=0, padx=5, pady=5, sticky=tk.W)
 
         self.pattern_type_var = tk.StringVar(value=self.config.options.pattern_type)
-        self.pattern_type_var.trace_add("write", self._on_pattern_type_changed)
 
         ttk.Radiobutton(
-            options_frame, text="Add Prefix", variable=self.pattern_type_var, value=PatternType.PREFIX
+            options_frame,
+            text="Add Prefix",
+            variable=self.pattern_type_var,
+            value=PatternType.PREFIX,
+            command=self._on_pattern_type_changed,
         ).grid(row=0, column=1, padx=5, pady=5, sticky=tk.W)
+
         ttk.Radiobutton(
-            options_frame, text="Add Suffix", variable=self.pattern_type_var, value=PatternType.SUFFIX
+            options_frame,
+            text="Add Suffix",
+            variable=self.pattern_type_var,
+            value=PatternType.SUFFIX,
+            command=self._on_pattern_type_changed,
         ).grid(row=0, column=2, padx=5, pady=5, sticky=tk.W)
+
         ttk.Radiobutton(
-            options_frame, text="Replace Text", variable=self.pattern_type_var, value=PatternType.REPLACE
+            options_frame,
+            text="Replace Text",
+            variable=self.pattern_type_var,
+            value=PatternType.REPLACE,
+            command=self._on_pattern_type_changed,
         ).grid(row=0, column=3, padx=5, pady=5, sticky=tk.W)
+
         ttk.Radiobutton(
-            options_frame, text="Regular Expression", variable=self.pattern_type_var, value=PatternType.REGEX
+            options_frame,
+            text="Regular Expression",
+            variable=self.pattern_type_var,
+            value=PatternType.REGEX,
+            command=self._on_pattern_type_changed,
         ).grid(row=0, column=4, padx=5, pady=5, sticky=tk.W)
 
         # Text inputs for pattern
         ttk.Label(options_frame, text="Text:").grid(row=1, column=0, padx=5, pady=5, sticky=tk.W)
         self.pattern_text_var = tk.StringVar()
-        self.pattern_text_var.trace_add("write", self._on_pattern_text_changed)
         ttk.Entry(options_frame, textvariable=self.pattern_text_var, width=30).grid(
             row=1, column=1, columnspan=2, padx=5, pady=5, sticky=tk.W + tk.E
         )
 
         ttk.Label(options_frame, text="Replace With:").grid(row=1, column=3, padx=5, pady=5, sticky=tk.W)
         self.replace_text_var = tk.StringVar()
-        self.replace_text_var.trace_add("write", self._on_replace_text_changed)
         ttk.Entry(options_frame, textvariable=self.replace_text_var, width=30).grid(
             row=1, column=4, padx=5, pady=5, sticky=tk.W + tk.E
         )
 
         # Additional options
         self.include_date_var = tk.BooleanVar(value=self.config.options.include_date)
-        self.include_date_var.trace_add("write", self._on_include_date_changed)
-        ttk.Checkbutton(options_frame, text="Include Date (YYYYMMDD)", variable=self.include_date_var).grid(
-            row=2, column=0, columnspan=2, padx=5, pady=5, sticky=tk.W
-        )
+        ttk.Checkbutton(
+            options_frame,
+            text="Include Date (YYYYMMDD)",
+            variable=self.include_date_var,
+            command=self._on_include_date_changed,
+        ).grid(row=2, column=0, columnspan=2, padx=5, pady=5, sticky=tk.W)
 
         self.include_numbers_var = tk.BooleanVar(value=self.config.options.include_numbers)
-        self.include_numbers_var.trace_add("write", self._on_include_numbers_changed)
-        ttk.Checkbutton(options_frame, text="Include Numbering", variable=self.include_numbers_var).grid(
-            row=2, column=2, columnspan=2, padx=5, pady=5, sticky=tk.W
-        )
+        ttk.Checkbutton(
+            options_frame,
+            text="Include Numbering",
+            variable=self.include_numbers_var,
+            command=self._on_include_numbers_changed,
+        ).grid(row=2, column=2, columnspan=2, padx=5, pady=5, sticky=tk.W)
 
         self.extension_filter_var = tk.StringVar(value=self.config.options.extension_filter)
-        self.extension_filter_var.trace_add("write", self._on_extension_filter_changed)
         ttk.Label(options_frame, text="Filter by Extension:").grid(row=3, column=0, padx=5, pady=5, sticky=tk.W)
         ttk.Entry(options_frame, textvariable=self.extension_filter_var, width=10).grid(
             row=3, column=1, padx=5, pady=5, sticky=tk.W
         )
         ttk.Label(options_frame, text="(e.g., jpg,png,txt)").grid(row=3, column=2, padx=5, pady=5, sticky=tk.W)
 
-    def _on_pattern_type_changed(self, *args):
+        # Connect text change events
+        self.pattern_text_var.trace_add("write", self._on_pattern_text_changed)
+        self.replace_text_var.trace_add("write", self._on_replace_text_changed)
+        self.extension_filter_var.trace_add("write", self._on_extension_filter_changed)
+
+    def _on_pattern_type_changed(self):
         """Update config when pattern type changes"""
         try:
             self.config.options.pattern_type = PatternType(self.pattern_type_var.get())
@@ -206,11 +312,11 @@ class FileRenamer(tk.Tk):
         """Update config when replace text changes"""
         self.config.options.replace_text = self.replace_text_var.get()
 
-    def _on_include_date_changed(self, *args):
+    def _on_include_date_changed(self):
         """Update config when include date changes"""
         self.config.options.include_date = self.include_date_var.get()
 
-    def _on_include_numbers_changed(self, *args):
+    def _on_include_numbers_changed(self):
         """Update config when include numbers changes"""
         self.config.options.include_numbers = self.include_numbers_var.get()
 
@@ -258,6 +364,13 @@ class FileRenamer(tk.Tk):
         directory = filedialog.askdirectory()
         if directory:
             self.dir_path_var.set(directory)
+            # Clear selected files when changing directory
+            self.config.selected_files = []
+            self._update_selected_files_display()
+            # Switch to directory mode
+            self.selection_mode_var.set("directory")
+            # Generate preview with the new directory
+            self.generate_preview()
 
     def process_queue(self):
         """Handle completed background tasks"""
@@ -281,7 +394,12 @@ class FileRenamer(tk.Tk):
         self.after(100, self.periodic_call)
 
     def get_file_list(self) -> List[str]:
-        """Get list of files in the selected directory"""
+        """Get list of files to process based on selection mode"""
+        # If in selected files mode and files are selected, use them
+        if self.selection_mode_var.get() == "selected" and self.config.selected_files:
+            return [os.path.basename(f) for f in self.config.selected_files]
+
+        # Otherwise, get files from directory
         directory = self.config.dir_path
         if not directory or not os.path.isdir(directory):
             messagebox.showerror("Error", "Please select a valid directory.")
@@ -366,6 +484,8 @@ class FileRenamer(tk.Tk):
         renamed_count = 0
         errors: List[str] = []
 
+        is_selected_mode = self.selection_mode_var.get() == "selected" and self.config.selected_files
+
         for i, filename in enumerate(files):
             try:
                 new_name = self.generate_new_filename(filename, i)
@@ -374,17 +494,35 @@ class FileRenamer(tk.Tk):
                 if filename == new_name:
                     continue
 
+                # Determine file paths based on mode
+                if is_selected_mode:
+                    # For selected files mode, use the full paths from selected_files
+                    original_path = self.config.selected_files[i]
+                    new_path = os.path.join(os.path.dirname(original_path), new_name)
+                else:
+                    # For directory mode, use the directory and filenames
+                    original_path = os.path.join(self.config.dir_path, filename)
+                    new_path = os.path.join(self.config.dir_path, new_name)
+
                 # Check for file name conflicts
-                if os.path.exists(os.path.join(self.config.dir_path, new_name)):
+                if os.path.exists(new_path):
                     errors.append(f"Cannot rename {filename}: {new_name} already exists")
                     continue
 
                 # Rename the file
-                os.rename(os.path.join(self.config.dir_path, filename), os.path.join(self.config.dir_path, new_name))
+                os.rename(original_path, new_path)
                 renamed_count += 1
+
+                # Update the selected_files list if in selected mode
+                if is_selected_mode:
+                    self.config.selected_files[i] = new_path
 
             except Exception as e:
                 errors.append(f"Error renaming {filename}: {str(e)}")
+
+        # Update the selected files display if needed
+        if is_selected_mode:
+            self._update_selected_files_display()
 
         if errors:
             self.queue.put(
@@ -400,12 +538,24 @@ class FileRenamer(tk.Tk):
 
     def rename_files(self):
         """Rename files based on selected options"""
-        if not self.config.dir_path or not os.path.isdir(self.config.dir_path):
+        # Check if we have files to rename
+        if self.selection_mode_var.get() == "selected" and not self.config.selected_files:
+            messagebox.showerror("Error", "Please select files to rename.")
+            return
+        elif self.selection_mode_var.get() == "directory" and (
+            not self.config.dir_path or not os.path.isdir(self.config.dir_path)
+        ):
             messagebox.showerror("Error", "Please select a valid directory.")
             return
 
+        # Get a count of files to be renamed
+        files = self.get_file_list()
+        if not files:
+            messagebox.showerror("Error", "No files found to rename.")
+            return
+
         # Confirm before renaming
-        if not messagebox.askyesno("Confirm", "Are you sure you want to rename these files?"):
+        if not messagebox.askyesno("Confirm", f"Are you sure you want to rename {len(files)} files?"):
             return
 
         self.status_var.set("Renaming files...")

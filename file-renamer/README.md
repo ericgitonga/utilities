@@ -1,14 +1,11 @@
-# File Renamer
-
-A cross-platform utility to easily rename multiple files using patterns, regular expressions, and more.
+# A cross-platform utility to easily rename multiple files using patterns, regular expressions, and more.
 
 ## Features
 
-- **Multiple Renaming Methods**: 
-  - Add prefix to filenames
-  - Add suffix to filenames
-  - Replace text in filenames
-  - Use regular expressions for advanced renaming
+- **Multiple Selection Methods**: 
+  - Process an entire directory at once
+  - Select specific files to rename
+  - Mix files from different folders
 
 - **Additional Options**:
   - Include date stamps (YYYYMMDD format)
@@ -83,8 +80,9 @@ chmod +x uninstall.sh
 
 - Python 3.6 or higher
 - Tkinter (usually included with Python)
+- Pydantic (automatically installed by the installer)
 
-### Installation Steps
+### Manual Installation Steps
 
 1. Clone this repository:
    ```bash
@@ -96,7 +94,12 @@ chmod +x uninstall.sh
    cd file-renamer
    ```
 
-3. Run the application:
+3. Install required dependencies:
+   ```bash
+   pip install pydantic
+   ```
+
+4. Run the application:
    ```bash
    python3 file_renamer.py
    ```
@@ -119,22 +122,40 @@ The install.sh and uninstall.sh scripts are designed to be run from within the f
 
 ## Usage Guide
 
-1. **Select a directory**: Click "Browse..." to choose a folder containing the files you want to rename.
+The File Renamer application offers two ways to select files for renaming:
 
-2. **Choose a renaming pattern**:
+### File Selection Methods
+
+1. **Process an Entire Directory**:
+   - Click "Browse Directory..." to select a folder
+   - All files in the directory will be processed (filtered by extension if specified)
+   - Select the "Process entire directory" radio button
+
+2. **Select Specific Files**:
+   - Click "Select Files..." to open a file browser
+   - Choose one or more files (use Ctrl/Shift for multiple selections)
+   - Files will be listed as "X files selected"
+   - Select the "Process selected files only" radio button
+
+### Renaming Options
+
+Once you've selected your files:
+
+1. **Choose a renaming pattern**:
    - Add Prefix: Adds text to the beginning of filenames
    - Add Suffix: Adds text before the extension
    - Replace Text: Substitutes specific text with new text
    - Regular Expression: Uses regex patterns for advanced renaming
 
-3. **Set additional options**:
+2. **Set additional options**:
    - Include Date: Adds the current date in YYYYMMDD format
    - Include Numbering: Adds sequential numbers to files
    - Filter by Extension: Enter comma-separated extensions (e.g., jpg,png,txt)
+     Note: Extension filter only applies in directory mode
 
-4. **Preview changes**: Click "Generate Preview" to see how files will be renamed
+3. **Preview changes**: Click "Generate Preview" to see how files will be renamed
 
-5. **Apply changes**: When satisfied, click "Rename Files" to apply the changes
+4. **Apply changes**: When satisfied, click "Rename Files" to apply the changes
 
 ## Building from Source
 
