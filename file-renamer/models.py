@@ -4,7 +4,7 @@ from enum import Enum
 from typing import List, Literal
 
 # Third-party imports
-from pydantic import BaseModel, Field, validator
+from pydantic import BaseModel, Field, field_validator
 
 
 class PatternType(str, Enum):
@@ -22,7 +22,8 @@ class RenameOptions(BaseModel):
     extension_filter: str = Field(default="")
     normalize_extensions: bool = Field(default=True)  # Option to normalize extensions
 
-    @validator("extension_filter")
+    @field_validator("extension_filter")
+    @classmethod
     def validate_extension_filter(cls, v):
         """Validate the extension filter format"""
         if v.strip() and not all(ext.strip() for ext in v.split(",")):
