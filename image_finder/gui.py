@@ -47,6 +47,7 @@ class ImageSimilarityFinderGUI:
         max_results (tk.IntVar): Maximum number of results
         results (List[SimilarityResult]): List of search results
         queue (queue.Queue): Queue for thread communication
+        cancel_search (threading.Event): Event to signal search cancellation
     """
 
     def __init__(self, root):
@@ -71,6 +72,10 @@ class ImageSimilarityFinderGUI:
         self.threshold = tk.DoubleVar(value=0.7)
         self.max_results = tk.IntVar(value=10)
         self.results: List[SimilarityResult] = []
+
+        # For search cancellation
+        self.cancel_search = threading.Event()
+        self.search_thread = None
 
         # Create menu bar
         self.create_menu()
@@ -100,6 +105,7 @@ class ImageSimilarityFinderGUI:
         file_menu.add_command(label="Clear Search Directories", command=self.clear_search_dirs)
         file_menu.add_separator()
         file_menu.add_command(label="Start Search", command=self.start_search)
+        file_menu.add_command(label="Cancel Search", command=self.cancel_search_operation)
         file_menu.add_separator()
         file_menu.add_command(label="Exit", command=self.exit_program)
 
@@ -117,6 +123,10 @@ class ImageSimilarityFinderGUI:
         if the user confirms.
         """
         if messagebox.askokcancel("Exit", "Are you sure you want to exit?"):
+            # Cancel any ongoing search before exiting
+            if self.search_thread and self.search_thread.is_alive():
+                self.cancel_search.set()
+                self.search_thread.join(timeout=1.0)
             self.root.destroy()
             sys.exit(0)
 
@@ -134,7 +144,8 @@ class ImageSimilarityFinderGUI:
             "Features:\n"
             "- Find similar images across multiple directories\n"
             "- Works with different image sizes and formats\n"
-            "- Adjustable similarity threshold\n\n"
+            "- Adjustable similarity threshold\n"
+            "- Cancel long-running operations\n\n"
             "Created by Eric Gitonga\n"
             "© 2025 Example Organization",
         )
@@ -153,8 +164,9 @@ class ImageSimilarityFinderGUI:
             "3. Adjust the similarity threshold as needed (higher = more similar)\n"
             "4. Set the maximum number of results to display\n"
             "5. Click 'Find Similar Images' to start the search\n"
-            "6. Results will appear in the list below, sorted by similarity\n"
-            "7. Click on any result to preview the image",
+            "6. Use the 'Cancel' button to stop a long-running search\n"
+            "7. Results will appear in the list below, sorted by similarity\n"
+            "8. Click on any result to preview the image",
         )
 
     def create_widgets(self) -> None:
@@ -215,10 +227,16 @@ class ImageSimilarityFinderGUI:
         ttk.Label(params_frame, text="Max Results:").grid(row=0, column=3, sticky=tk.W, padx=5)
         ttk.Spinbox(params_frame, from_=1, to=100, textvariable=self.max_results, width=5).grid(row=0, column=4, padx=5)
 
-        # Start search button
-        ttk.Button(input_frame, text="Find Similar Images", command=self.start_search).grid(
-            row=3, column=0, columnspan=3, pady=10
+        # Search control buttons
+        search_buttons_frame = ttk.Frame(input_frame)
+        search_buttons_frame.grid(row=3, column=0, columnspan=3, pady=10)
+        self.search_button = ttk.Button(search_buttons_frame, text="Find Similar Images", command=self.start_search)
+        self.search_button.pack(side=tk.LEFT, padx=5)
+
+        self.cancel_button = ttk.Button(
+            search_buttons_frame, text="Cancel Search", command=self.cancel_search_operation, state=tk.DISABLED
         )
+        self.cancel_button.pack(side=tk.LEFT, padx=5)
 
         # Progress bar
         self.progress_var = tk.DoubleVar()
@@ -270,6 +288,18 @@ class ImageSimilarityFinderGUI:
         self.status_var = tk.StringVar(value="Ready")
         status_bar = ttk.Label(self.root, textvariable=self.status_var, relief=tk.SUNKEN, anchor=tk.W)
         status_bar.pack(side=tk.BOTTOM, fill=tk.X)
+
+    def cancel_search_operation(self) -> None:
+        """
+        Cancel the currently running search operation.
+
+        This method sets the cancel event which signals the search thread
+        to terminate as soon as possible.
+        """
+        if self.search_thread and self.search_thread.is_alive():
+            self.cancel_search.set()
+            self.status_var.set("Cancelling search operation...")
+            self.progress_label.config(text="Cancelling...")
 
     def browse_query_image(self) -> None:
         """
@@ -370,18 +400,50 @@ class ImageSimilarityFinderGUI:
                     messagebox.showinfo("Search Complete", result_text)
                     self.progress_label.config(text="Search complete")
                     self.status_var.set(result_text)
+                    self.enable_search_controls()
                 elif msg[0] == "error":
                     _, error_msg = msg
                     messagebox.showerror("Error", error_msg)
                     self.progress_label.config(text="")
                     self.status_var.set(f"Error: {error_msg}")
+                    self.enable_search_controls()
+                elif msg[0] == "cancelled":
+                    messagebox.showinfo("Search Cancelled", "The search operation was cancelled")
+                    self.progress_label.config(text="Search cancelled")
+                    self.status_var.set("Search operation cancelled")
+                    self.enable_search_controls()
 
                 self.queue.task_done()
         except queue.Empty:
             pass
         finally:
-            # Schedule to check queue again
-            self.root.after(100, self.process_queue)
+            # If the thread is still running, schedule to check queue again
+            if self.search_thread and self.search_thread.is_alive():
+                self.root.after(100, self.process_queue)
+            else:
+                # If the thread has completed, ensure the UI is updated
+                self.enable_search_controls()
+
+    def enable_search_controls(self) -> None:
+        """
+        Enable search controls after a search completes or is cancelled.
+
+        This method updates the UI to allow starting a new search.
+        """
+        self.search_button.config(state=tk.NORMAL)
+        self.cancel_button.config(state=tk.DISABLED)
+        # Reset the cancel event
+        self.cancel_search.clear()
+
+    def disable_search_controls(self) -> None:
+        """
+        Disable search controls during an active search.
+
+        This method updates the UI to prevent starting a new search
+        while one is in progress.
+        """
+        self.search_button.config(state=tk.DISABLED)
+        self.cancel_button.config(state=tk.NORMAL)
 
     def create_search_config(self) -> Optional[SearchConfig]:
         """
@@ -420,7 +482,7 @@ class ImageSimilarityFinderGUI:
             self.queue.put(("error", str(e)))
             return None
 
-    def search_thread(self) -> None:
+    def run_search_thread(self) -> None:
         """
         Perform the search in a background thread.
 
@@ -439,14 +501,26 @@ class ImageSimilarityFinderGUI:
             # Initialize the finder
             finder = ImageSimilarityFinder(config)
 
-            # Do the search
-            results = finder.find_similar_images(self.update_progress)
+            # Define a progress callback that also checks for cancellation
+            def progress_callback_with_cancel(current, total):
+                self.update_progress(current, total)
+                # Check if cancellation has been requested
+                return self.cancel_search.is_set()
 
-            # Send results back to main thread
-            self.queue.put(("results", results))
+            # Do the search
+            results = finder.find_similar_images(progress_callback_with_cancel)
+
+            # Send results back to main thread if not cancelled
+            if not self.cancel_search.is_set():
+                self.queue.put(("results", results))
+            else:
+                self.queue.put(("cancelled", None))
 
         except Exception as e:
-            self.queue.put(("error", f"Error during search: {str(e)}"))
+            if not self.cancel_search.is_set():
+                self.queue.put(("error", f"Error during search: {str(e)}"))
+            else:
+                self.queue.put(("cancelled", None))
 
     def start_search(self) -> None:
         """
@@ -459,15 +533,19 @@ class ImageSimilarityFinderGUI:
         for item in self.results_tree.get_children():
             self.results_tree.delete(item)
 
-        # Reset progress
+        # Reset progress and cancel event
         self.progress_var.set(0)
         self.progress_label.config(text="Starting search...")
         self.status_var.set("Starting search...")
+        self.cancel_search.clear()
+
+        # Disable search button, enable cancel button
+        self.disable_search_controls()
 
         # Start search thread
-        thread = threading.Thread(target=self.search_thread)
-        thread.daemon = True
-        thread.start()
+        self.search_thread = threading.Thread(target=self.run_search_thread)
+        self.search_thread.daemon = True
+        self.search_thread.start()
 
         # Setup queue processing
         self.process_queue()

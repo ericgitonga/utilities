@@ -10,6 +10,7 @@ A tool with both GUI and command-line interfaces that finds visually similar ima
 - Adjustable similarity threshold for fine-tuning results
 - Configurable number of results to display
 - User-friendly graphical interface with image preview and context menus
+- **Ability to cancel long-running operations**
 - Right-click on results to open images or navigate to their folders
 - Command-line interface for automation and scripting
 - Type-safe implementation with Pydantic models
@@ -72,6 +73,7 @@ The GUI provides:
 - Adjustable threshold with slider
 - Results with similarity scores
 - Image preview
+- **Cancel button for stopping long-running operations**
 - Context menu for additional actions
 
 ### Command-line Interface
@@ -164,6 +166,8 @@ pytest
 4. **GUI not displaying**: Ensure Tkinter is properly installed with your Python distribution.
 
 5. **Low similarity scores**: Try adjusting the threshold parameter to find more matches.
+
+6. **Search taking too long**: For large directories with many images, use the Cancel button to stop the search prematurely and adjust your search parameters.
 
 ### Submitting Bug Reports
 

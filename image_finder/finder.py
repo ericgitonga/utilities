@@ -10,7 +10,7 @@ Classes:
 
 import os
 from pathlib import Path
-from typing import List, Optional, Callable
+from typing import List, Optional, Callable, Union
 
 # Use try-except to handle both direct execution and package import
 try:
@@ -48,7 +48,7 @@ class ImageSimilarityFinder:
         self.supported_extensions = {".jpg", ".jpeg", ".png", ".bmp", ".tiff", ".webp", ".gif"}
 
     def find_similar_images(
-        self, progress_callback: Optional[Callable[[int, int], None]] = None
+        self, progress_callback: Optional[Callable[[int, int], Union[None, bool]]] = None
     ) -> List[SimilarityResult]:
         """
         Find images similar to the query image in the search directories.
@@ -59,12 +59,14 @@ class ImageSimilarityFinder:
         Args:
             progress_callback: Optional callback function for progress updates
                 Takes two parameters: current progress and total items
+                Can return True to signal cancellation
 
         Returns:
             List[SimilarityResult]: List of SimilarityResult objects sorted by similarity
 
         Note:
             The search can be time-consuming for large directories with many images
+            If the progress_callback returns True, the search will be cancelled
         """
         # Extract features from the query image
         query_features = self.analyzer.extract_features(self.config.query_image)
@@ -81,9 +83,13 @@ class ImageSimilarityFinder:
 
         # Process each image
         for i, file_path in enumerate(image_files):
-            # Update progress
+            # Update progress and check for cancellation
             if progress_callback:
-                progress_callback(i, total_files)
+                cancel_requested = progress_callback(i, total_files)
+                # If the callback returns True, cancel the operation
+                if cancel_requested:
+                    print("Search cancelled by user")
+                    return results  # Return partial results
 
             # Extract features from the current image
             current_features = self.analyzer.extract_features(file_path)
@@ -98,7 +104,10 @@ class ImageSimilarityFinder:
 
         # Final progress update
         if progress_callback:
-            progress_callback(total_files, total_files)
+            cancel_requested = progress_callback(total_files, total_files)
+            if cancel_requested:
+                print("Search cancelled by user")
+                return results  # Return partial results
 
         # Sort results by similarity (highest first)
         results.sort(key=lambda x: x.similarity, reverse=True)
