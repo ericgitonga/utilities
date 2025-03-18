@@ -125,6 +125,7 @@ class ImageSimilarityFinderGUI:
             "- Find similar images across multiple directories\n"
             "- Works with different image sizes and formats\n"
             "- Adjustable similarity threshold\n\n"
+            "Created by Eric Gitonga\n"
             "© 2025 Example Organization",
         )
 
