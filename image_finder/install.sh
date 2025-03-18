@@ -17,6 +17,7 @@ echo -e "${YELLOW}Installing Image Similarity Finder...${NC}"
 
 # Create directories if they don't exist
 mkdir -p "$INSTALL_DIR"
+mkdir -p "$INSTALL_DIR/imagesim"
 mkdir -p "$BIN_DIR"
 
 # Check Python installation
@@ -27,25 +28,39 @@ fi
 
 # Install required packages
 echo -e "${YELLOW}Installing required Python packages...${NC}"
-python3 -m pip install numpy pillow opencv-python scikit-learn argparse pathlib tk pydantic
+python3 -m pip install numpy pillow opencv-python scikit-learn pydantic
 
-# Copy the main script from the same directory
-if [ -f "$SCRIPT_DIR/image_finder.py" ]; then
-    cp "$SCRIPT_DIR/image_finder.py" "$INSTALL_DIR/"
-    echo -e "${GREEN}Copied image_finder.py to $INSTALL_DIR${NC}"
-else
-    echo -e "${RED}Error: image_finder.py not found in the current directory.${NC}"
-    exit 1
-fi
+# Copy the Python modules
+echo -e "${YELLOW}Copying Python modules...${NC}"
+cp "$SCRIPT_DIR/models.py" "$INSTALL_DIR/imagesim/"
+cp "$SCRIPT_DIR/analyzer.py" "$INSTALL_DIR/imagesim/"
+cp "$SCRIPT_DIR/finder.py" "$INSTALL_DIR/imagesim/"
+cp "$SCRIPT_DIR/gui.py" "$INSTALL_DIR/imagesim/"
+cp "$SCRIPT_DIR/cli.py" "$INSTALL_DIR/imagesim/"
+cp "$SCRIPT_DIR/main.py" "$INSTALL_DIR/imagesim/"
+cp "$SCRIPT_DIR/__init__.py" "$INSTALL_DIR/imagesim/"
+
+# Create __main__.py file
+cat > "$INSTALL_DIR/imagesim/__main__.py" << 'EOF'
+"""
+Image Similarity Finder - Main Module
+
+This allows the package to be executed directly:
+python -m imagesim
+
+It simply imports and calls the main function from the main module.
+"""
+
+from imagesim.main import main
+
+if __name__ == "__main__":
+    main()
+EOF
 
 # Create wrapper script
 cat > "$BIN_DIR/imagesim" << EOF
 #!/bin/bash
-if [ "$1" == "--gui" ] || [ "$1" == "-g" ]; then
-  python3 "$INSTALL_DIR/image_finder.py" --gui
-else
-  python3 "$INSTALL_DIR/image_finder.py" "\$@"
-fi
+PYTHONPATH="$INSTALL_DIR" python3 -m imagesim "\$@"
 EOF
 
 # Make the wrapper script executable
@@ -81,85 +96,12 @@ EOF
 # Make uninstaller executable
 chmod +x "$INSTALL_DIR/uninstall.sh"
 
-# Create README file
-cat > "$INSTALL_DIR/README.md" << 'EOF'
-# Image Similarity Finder
-
-A command-line tool to find visually similar images across directories, regardless of size or format.
-
-## Features
-
-- Find images similar to a reference image across multiple directories
-- Supports various image formats (JPG, PNG, BMP, TIFF, WebP, GIF)
-- Adjustable similarity threshold for more or fewer matches
-- Works with different image sizes and aspect ratios
-
-## Installation
-
-Run the installer script:
-
-```bash
-./install.sh
-```
-
-This will install:
-- The required Python packages
-- The main script in ~/.image-similarity-finder/
-- A command-line executable at ~/.local/bin/imagesim
-
-## Usage
-
-Basic usage:
-
-```bash
-imagesim path/to/reference_image.jpg path/to/search/directory
-```
-
-Search multiple directories:
-
-```bash
-imagesim reference_image.jpg dir1 dir2 dir3
-```
-
-Adjust similarity threshold (0-1, where 1 is identical):
-
-```bash
-imagesim reference_image.jpg directory --threshold 0.6
-```
-
-Limit number of results:
-
-```bash
-imagesim reference_image.jpg directory --max-results 5
-```
-
-## How It Works
-
-The tool uses computer vision techniques to find similar images:
-
-1. **Feature Extraction**: Converts each image into a numerical representation using Histogram of Oriented Gradients (HOG)
-2. **Similarity Comparison**: Uses cosine similarity to compare feature vectors
-3. **Result Ranking**: Returns the most similar images sorted by similarity score
-
-## Uninstallation
-
-To uninstall:
-
-```bash
-~/.image-similarity-finder/uninstall.sh
-```
-
-## Requirements
-
-- Python 3
-- Required packages (automatically installed): numpy, pillow, opencv-python, scikit-learn
-EOF
-
-# Copy README to current directory as well
-cp "$INSTALL_DIR/README.md" "./README.md"
+# Copy README to installation directory
+cp "$SCRIPT_DIR/README.md" "$INSTALL_DIR/"
 
 echo -e "${GREEN}Installation complete!${NC}"
 echo -e "${YELLOW}Usage: imagesim path/to/reference_image.jpg path/to/search/directory${NC}"
+echo -e "${YELLOW}       imagesim --gui (or just imagesim with no arguments for GUI mode)${NC}"
 echo -e "${YELLOW}See README.md for more information${NC}"
 
 # Check if $BIN_DIR is in PATH

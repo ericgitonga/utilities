@@ -13,24 +13,35 @@ A tool with both GUI and command-line interfaces that finds visually similar ima
 - Command-line interface for automation and scripting
 - Type-safe implementation with Pydantic models
 - Robust error handling and validation
+- Modular architecture with clean separation of concerns
 - Easy installation and uninstallation
+
+## Architecture
+
+The application follows a modular architecture with clear separation of concerns:
+
+- **models.py**: Data models and validation using Pydantic
+- **analyzer.py**: Image analysis and feature extraction
+- **finder.py**: Core functionality for finding similar images
+- **gui.py**: Graphical user interface using Tkinter
+- **cli.py**: Command-line interface
+- **main.py**: Main entry point for the application
 
 ## Installation
 
-1. Download the installation package
-2. Make the installer executable:
-   ```bash
-   chmod +x install.sh
-   ```
-3. Run the installer:
-   ```bash
-   ./install.sh
-   ```
+### Option 1: Using pip (recommended)
 
-The installer will:
-- Install required Python packages (numpy, pillow, opencv-python, scikit-learn)
-- Set up the tool in `~/.image-similarity-finder/`
-- Create a command-line executable at `~/.local/bin/imagesim`
+```bash
+pip install imagesim
+```
+
+### Option 2: From source
+
+```bash
+git clone https://github.com/example/imagesim.git
+cd imagesim
+pip install -e .
+```
 
 ## Usage
 
@@ -45,7 +56,7 @@ imagesim --gui
 or simply:
 
 ```bash
-imagesim -g
+imagesim
 ```
 
 The GUI provides:
@@ -90,36 +101,37 @@ The tool uses computer vision techniques to find similar images:
 3. **Similarity Calculation**: Cosine similarity measures how similar the vectors are
 4. **Result Ranking**: Images are ranked by similarity score and returned in descending order
 
-## Examples
+## Development
 
-Find similar landscape photos:
+### Prerequisites
+
+- Python 3.7 or higher
+- pip (Python package manager)
+
+### Setup development environment
+
 ```bash
-imagesim vacation/sunset.jpg ~/Pictures --threshold 0.75
+# Clone the repository
+git clone https://github.com/example/imagesim.git
+cd imagesim
+
+# Create a virtual environment
+python -m venv venv
+source venv/bin/activate  # On Windows: venv\Scripts\activate
+
+# Install development dependencies
+pip install -e ".[dev]"
 ```
 
-Find all variations of a logo across multiple folders:
-```bash
-imagesim assets/logo.png ~/Documents ~/Downloads ~/Desktop --threshold 0.8
-```
-
-## Uninstallation
-
-To remove the tool completely:
+### Running tests
 
 ```bash
-~/.image-similarity-finder/uninstall.sh
-```
-
-Or use the separate uninstaller:
-
-```bash
-./uninstall.sh
+pytest
 ```
 
 ## Requirements
 
-- Python 3
-- pip (Python package manager)
+- Python 3.7+
 - Required Python packages (automatically installed):
   - numpy: For numerical operations
   - pillow: For image processing
@@ -128,26 +140,10 @@ Or use the separate uninstaller:
   - tkinter: For the graphical user interface
   - pydantic: For data validation and modeling
 
-## Troubleshooting
+## License
 
-### Command not found
+MIT License
 
-If you see "command not found" when trying to run `imagesim`, your `~/.local/bin` directory might not be in your PATH. Add it by running:
+## Contributing
 
-```bash
-echo 'export PATH="$PATH:$HOME/.local/bin"' >> ~/.bashrc
-source ~/.bashrc
-```
-
-### Permission errors
-
-If you encounter permission errors during installation, try:
-
-```bash
-pip install --user numpy pillow opencv-python scikit-learn
-```
-
-### Performance considerations
-
-- Processing large images or searching through many directories may take time
-- For faster results with large datasets, consider using a lower similarity threshold
+Contributions are welcome! Please feel free to submit a Pull Request.
