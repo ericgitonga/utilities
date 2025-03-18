@@ -1,18 +1,11 @@
-"""
-Image Similarity Finder - Graphical User Interface
-
-This module implements the graphical user interface for the Image Similarity Finder.
-It provides a user-friendly way to select images, specify search parameters, and view results.
-
-Classes:
-    ImageSimilarityFinderGUI: GUI for the Image Similarity Finder
-"""
-
 import tkinter as tk
 from tkinter import filedialog, ttk, messagebox, Menu
 import threading
 import queue
 import sys
+import os
+import subprocess
+import platform
 from typing import List, Optional
 from PIL import Image, ImageTk
 from pathlib import Path
@@ -239,6 +232,14 @@ class ImageSimilarityFinderGUI:
 
         # Bind selection event
         self.results_tree.bind("<<TreeviewSelect>>", self.on_result_select)
+
+        # Bind right-click event for context menu
+        self.results_tree.bind("<Button-3>", self.show_context_menu)
+
+        # Create context menu
+        self.context_menu = Menu(self.root, tearoff=0)
+        self.context_menu.add_command(label="Open Image", command=self.open_selected_image)
+        self.context_menu.add_command(label="Open Containing Folder", command=self.open_containing_folder)
 
         # Bottom section - Image preview
         preview_frame = ttk.LabelFrame(main_frame, text="Image Preview", padding="10")
@@ -493,6 +494,87 @@ class ImageSimilarityFinderGUI:
             similarity = self.results_tree.item(item, "values")[0]
             file_name = Path(path).name
             self.status_var.set(f"Viewing: {file_name} (Similarity: {similarity})")
+        """
+        Image Similarity Finder - Graphical User Interface
+
+        This module implements the graphical user interface for the Image Similarity Finder.
+        It provides a user-friendly way to select images, specify search parameters, and view results.
+
+        Classes:
+        ImageSimilarityFinderGUI: GUI for the Image Similarity Finder
+        """
+
+    def show_context_menu(self, event) -> None:
+        """
+        Display context menu on right-click in the results treeview.
+
+        This method shows a context menu with options to open the image
+        or navigate to its containing folder.
+
+        Args:
+            event: Tkinter event object containing information about the click
+        """
+        # Select the item under the cursor
+        item = self.results_tree.identify_row(event.y)
+        if item:
+            # Select the item and show context menu
+            self.results_tree.selection_set(item)
+            self.context_menu.post(event.x_root, event.y_root)
+
+    def open_selected_image(self) -> None:
+        """
+        Open the selected image with the default system application.
+
+        This method gets the selected image path and opens it with
+        the default application for that file type.
+        """
+        selection = self.results_tree.selection()
+        if selection:
+            item = selection[0]
+            # Get the path from the second column
+            path = self.results_tree.item(item, "values")[1]
+
+            try:
+                # Open the file with the default application
+                if platform.system() == "Windows":
+                    os.startfile(path)
+                elif platform.system() == "Darwin":  # macOS
+                    subprocess.call(("open", path))
+                else:  # Linux and other Unix-like
+                    subprocess.call(("xdg-open", path))
+
+                self.status_var.set(f"Opened image: {Path(path).name}")
+            except Exception as e:
+                messagebox.showerror("Error", f"Could not open image: {str(e)}")
+                self.status_var.set(f"Error opening image: {str(e)}")
+
+    def open_containing_folder(self) -> None:
+        """
+        Open the folder containing the selected image.
+
+        This method gets the selected image path, finds its parent directory,
+        and opens that directory with the system file explorer.
+        """
+        selection = self.results_tree.selection()
+        if selection:
+            item = selection[0]
+            # Get the path from the second column
+            path = self.results_tree.item(item, "values")[1]
+            parent_folder = str(Path(path).parent)
+
+            try:
+                # Open the folder with the default file explorer
+                if platform.system() == "Windows":
+                    os.startfile(parent_folder)
+                elif platform.system() == "Darwin":  # macOS
+                    subprocess.call(("open", parent_folder))
+                else:  # Linux and other Unix-like
+                    subprocess.call(("xdg-open", parent_folder))
+
+                self.status_var.set(f"Opened folder: {Path(parent_folder).name}")
+            except Exception as e:
+                messagebox.showerror("Error", f"Could not open folder: {str(e)}")
+                self.status_var.set(f"Error opening folder: {str(e)}")
 
     def show_image(self, path: str) -> None:
         """

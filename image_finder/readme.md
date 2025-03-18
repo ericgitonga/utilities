@@ -9,7 +9,8 @@ A tool with both GUI and command-line interfaces that finds visually similar ima
 - Supports various image formats (JPG, PNG, BMP, TIFF, WebP, GIF)
 - Adjustable similarity threshold for fine-tuning results
 - Configurable number of results to display
-- User-friendly graphical interface with image preview
+- User-friendly graphical interface with image preview and context menus
+- Right-click on results to open images or navigate to their folders
 - Command-line interface for automation and scripting
 - Type-safe implementation with Pydantic models
 - Robust error handling and validation
