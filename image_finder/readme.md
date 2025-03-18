@@ -1,6 +1,6 @@
 # Image Similarity Finder
 
-A command-line tool that finds visually similar images across directories, regardless of size, format, or minor modifications.
+A tool with both GUI and command-line interfaces that finds visually similar images across directories, regardless of size, format, or minor modifications.
 
 ## Features
 
@@ -9,6 +9,8 @@ A command-line tool that finds visually similar images across directories, regar
 - Supports various image formats (JPG, PNG, BMP, TIFF, WebP, GIF)
 - Adjustable similarity threshold for fine-tuning results
 - Configurable number of results to display
+- User-friendly graphical interface with image preview
+- Command-line interface for automation and scripting
 - Easy installation and uninstallation
 
 ## Installation
@@ -30,25 +32,48 @@ The installer will:
 
 ## Usage
 
-### Basic usage
+### Graphical User Interface
+
+Launch the GUI with:
+
+```bash
+imagesim --gui
+```
+
+or simply:
+
+```bash
+imagesim -g
+```
+
+The GUI provides:
+- Visual image selection
+- Directory browsing
+- Adjustable threshold with slider
+- Results with similarity scores
+- Image preview
+
+### Command-line Interface
+
+#### Basic usage
 
 ```bash
 imagesim path/to/reference_image.jpg path/to/search/directory
 ```
 
-### Search multiple directories
+#### Search multiple directories
 
 ```bash
 imagesim reference_image.jpg dir1 dir2 dir3
 ```
 
-### Adjust similarity threshold (0-1, where 1 is identical)
+#### Adjust similarity threshold (0-1, where 1 is identical)
 
 ```bash
 imagesim reference_image.jpg directory --threshold 0.6
 ```
 
-### Limit number of results
+#### Limit number of results
 
 ```bash
 imagesim reference_image.jpg directory --max-results 5
@@ -93,7 +118,12 @@ Or use the separate uninstaller:
 
 - Python 3
 - pip (Python package manager)
-- Required Python packages (automatically installed): numpy, pillow, opencv-python, scikit-learn
+- Required Python packages (automatically installed):
+  - numpy: For numerical operations
+  - pillow: For image processing
+  - opencv-python: For computer vision algorithms
+  - scikit-learn: For similarity calculations
+  - tkinter: For the graphical user interface
 
 ## Troubleshooting
 

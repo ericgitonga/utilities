@@ -27,7 +27,7 @@ fi
 
 # Install required packages
 echo -e "${YELLOW}Installing required Python packages...${NC}"
-python3 -m pip install numpy pillow opencv-python scikit-learn argparse pathlib
+python3 -m pip install numpy pillow opencv-python scikit-learn argparse pathlib tk
 
 # Copy the main script from the same directory
 if [ -f "$SCRIPT_DIR/image_finder.py" ]; then
@@ -41,7 +41,11 @@ fi
 # Create wrapper script
 cat > "$BIN_DIR/imagesim" << EOF
 #!/bin/bash
-python3 "$INSTALL_DIR/image_finder.py" "\$@"
+if [ "$1" == "--gui" ] || [ "$1" == "-g" ]; then
+  python3 "$INSTALL_DIR/image_finder.py" --gui
+else
+  python3 "$INSTALL_DIR/image_finder.py" "\$@"
+fi
 EOF
 
 # Make the wrapper script executable
