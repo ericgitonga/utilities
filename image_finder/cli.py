@@ -46,6 +46,9 @@ def parse_cli_args() -> Optional[SearchConfig]:
     parser.add_argument("--threshold", type=float, default=0.7, help="Similarity threshold (0-1)")
     parser.add_argument("--max-results", type=int, default=10, help="Maximum number of results")
     parser.add_argument("--gui", "-g", action="store_true", help="Start in GUI mode")
+    parser.add_argument(
+        "--no-detach", action="store_true", help=argparse.SUPPRESS
+    )  # Hidden option for process detachment
 
     args = parser.parse_args()
 
@@ -94,7 +97,21 @@ def run_cli(config: SearchConfig) -> None:
 
     # Create finder and run search
     finder = ImageSimilarityFinder(config)
-    results = finder.find_similar_images()
+
+    # Define a simple progress callback for CLI
+    def cli_progress_callback(current: int, total: int) -> None:
+        """Simple progress callback that prints progress to stdout"""
+        if total > 0:
+            percent = (current / total) * 100
+            sys.stdout.write(f"\rProgress: {current}/{total} ({percent:.1f}%)")
+            sys.stdout.flush()
+        return False  # Never cancel from CLI progress callback
+
+    results = finder.find_similar_images(cli_progress_callback)
+
+    # End progress line
+    if results:
+        print("\n")
 
     # Print results
     if not results:

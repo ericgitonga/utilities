@@ -11,6 +11,7 @@ A tool with both GUI and command-line interfaces that finds visually similar ima
 - Configurable number of results to display
 - User-friendly graphical interface with image preview and context menus
 - **Ability to cancel long-running operations**
+- **Releases terminal when running in GUI mode**
 - Right-click on results to open images or navigate to their folders
 - Command-line interface for automation and scripting
 - Type-safe implementation with Pydantic models
@@ -66,6 +67,8 @@ or simply:
 ```bash
 imagesim
 ```
+
+The GUI will launch in a detached process, freeing up your terminal for other tasks.
 
 The GUI provides:
 - Visual image selection
@@ -168,6 +171,11 @@ pytest
 5. **Low similarity scores**: Try adjusting the threshold parameter to find more matches.
 
 6. **Search taking too long**: For large directories with many images, use the Cancel button to stop the search prematurely and adjust your search parameters.
+
+7. **Terminal still blocked after launching GUI**: If the automatic terminal detachment isn't working, you can try one of these workarounds:
+   - Linux: `nohup imagesim -g > /dev/null 2>&1 &`
+   - macOS: `open -a imagesim` or `imagesim -g &`
+   - Windows: Use `start pythonw -m imagesim` or use the Start menu shortcut if installed
 
 ### Submitting Bug Reports
 

@@ -9,13 +9,102 @@ to avoid potential import issues.
 """
 
 import sys
+import os
+import platform
+import subprocess
 import argparse
+import tempfile
 from typing import Optional
 
 # These imports will be relative to the installation directory
 from imagesim.models import SearchConfig
 from imagesim.finder import ImageSimilarityFinder
 import imagesim.gui as gui_module
+
+
+def detach_terminal_linux():
+    """
+    Detach from terminal on Linux using nohup.
+
+    This launches a new, detached instance of the application and exits the original process.
+    """
+    # Prepare the command
+    args = ["nohup", sys.executable, "-m", "imagesim"] + sys.argv[1:] + ["--no-detach"]
+
+    # Redirect standard file descriptors
+    with open(os.devnull, "w") as devnull:
+        # Start the detached process
+        subprocess.Popen(
+            args,
+            stdout=devnull,
+            stderr=devnull,
+            stdin=devnull,
+            preexec_fn=os.setpgrp,  # This is the key for detaching
+            close_fds=True,
+            start_new_session=True,
+        )
+
+    # Exit the original process
+    sys.exit(0)
+
+
+def detach_terminal_macos():
+    """
+    Detach from terminal on macOS.
+
+    This launches a new, detached instance of the application and exits the original process.
+    """
+    # Prepare the command
+    args = [sys.executable, "-m", "imagesim"] + sys.argv[1:] + ["--no-detach"]
+
+    # Create a launch script in a temporary file
+    with tempfile.NamedTemporaryFile(mode="w", suffix=".command", delete=False) as f:
+        script_path = f.name
+        f.write("#!/bin/bash\n")
+        f.write(" ".join(args))
+        f.write(" &\n")  # Run in background
+        f.write("disown\n")  # Detach process
+
+    # Make the script executable
+    os.chmod(script_path, 0o755)
+
+    # Use the 'open' command to run the script in a new Terminal window
+    subprocess.Popen(["open", script_path])
+
+    # Exit the original process
+    sys.exit(0)
+
+
+def detach_terminal_windows():
+    """
+    Detach from terminal on Windows.
+
+    This launches a new, detached instance of the application and exits the original process.
+    """
+    # Prepare the command
+    args = [sys.executable, "-m", "imagesim"] + sys.argv[1:] + ["--no-detach"]
+
+    # Use pythonw.exe instead of python.exe if possible (prevents console window)
+    python_path = sys.executable
+    pythonw_path = python_path.replace("python.exe", "pythonw.exe")
+    if os.path.exists(pythonw_path):
+        args[0] = pythonw_path
+
+    # Start the process detached
+    startupinfo = subprocess.STARTUPINFO()
+    startupinfo.dwFlags |= subprocess.STARTF_USESHOWWINDOW
+    startupinfo.wShowWindow = 0  # SW_HIDE
+
+    subprocess.Popen(
+        args,
+        startupinfo=startupinfo,
+        creationflags=subprocess.CREATE_NEW_PROCESS_GROUP | subprocess.DETACHED_PROCESS,
+        close_fds=True,
+        shell=False,
+    )
+
+    # Exit the original process
+    sys.exit(0)
 
 
 def parse_cli_args() -> Optional[SearchConfig]:
@@ -37,6 +126,7 @@ def parse_cli_args() -> Optional[SearchConfig]:
     parser.add_argument("--threshold", type=float, default=0.7, help="Similarity threshold (0-1)")
     parser.add_argument("--max-results", type=int, default=10, help="Maximum number of results")
     parser.add_argument("--gui", "-g", action="store_true", help="Start in GUI mode")
+    parser.add_argument("--no-detach", action="store_true", help=argparse.SUPPRESS)  # Hidden option
 
     args = parser.parse_args()
 
@@ -82,7 +172,17 @@ def run_cli(config: SearchConfig) -> None:
 
     # Create finder and run search
     finder = ImageSimilarityFinder(config)
-    results = finder.find_similar_images()
+
+    # Define a simple progress callback for CLI
+    def cli_progress_callback(current: int, total: int) -> bool:
+        """Simple progress callback that prints progress to stdout"""
+        if total > 0:
+            percent = (current / total) * 100
+            sys.stdout.write(f"\rProgress: {current}/{total} ({percent:.1f}%)")
+            sys.stdout.flush()
+        return False  # Never cancel from CLI progress callback
+
+    results = finder.find_similar_images(cli_progress_callback)
 
     # Print results
     if not results:
@@ -99,6 +199,34 @@ def run_cli(config: SearchConfig) -> None:
 
 def main():
     """Main entry point for the application."""
+    # Check if this is a detached process (has --no-detach flag)
+    if "--no-detach" in sys.argv:
+        # Remove the flag to prevent parsing issues
+        sys.argv.remove("--no-detach")
+    else:
+        # Check if GUI mode is explicitly requested or implied
+        if len(sys.argv) > 1 and (sys.argv[1] == "--gui" or sys.argv[1] == "-g"):
+            # Detach for GUI mode based on platform
+            if platform.system() == "Linux":
+                detach_terminal_linux()
+            elif platform.system() == "Darwin":  # macOS
+                detach_terminal_macos()
+            elif platform.system() == "Windows":
+                detach_terminal_windows()
+        # Also detach if no arguments (implicit GUI mode)
+        elif len(sys.argv) == 1:
+            # Detach based on platform
+            if platform.system() == "Linux":
+                detach_terminal_linux()
+            elif platform.system() == "Darwin":  # macOS
+                detach_terminal_macos()
+            elif platform.system() == "Windows":
+                detach_terminal_windows()
+
+    # Regular execution continues here for either:
+    # 1. CLI mode
+    # 2. Detached GUI process
+    # 3. Already detached process (--no-detach flag present)
     config = parse_cli_args()
 
     if config is None:
