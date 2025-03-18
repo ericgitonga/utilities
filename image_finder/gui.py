@@ -73,6 +73,9 @@ class ImageSimilarityFinderGUI:
         self.max_results = tk.IntVar(value=10)
         self.results: List[SimilarityResult] = []
 
+        # Get default pictures directory
+        self.default_pictures_dir = self.get_pictures_directory()
+
         # For search cancellation
         self.cancel_search = threading.Event()
         self.search_thread = None
@@ -85,6 +88,36 @@ class ImageSimilarityFinderGUI:
 
         # Queue for thread communication
         self.queue: queue.Queue = queue.Queue()
+
+    def get_pictures_directory(self) -> str:
+        """
+        Get the path to the system's Pictures directory.
+
+        Returns:
+            str: Path to the Pictures directory, or home directory if not found
+        """
+        # Try to find the Pictures directory based on the platform
+        if platform.system() == "Windows":
+            # On Windows, use the USERPROFILE environment variable
+            pictures_dir = os.path.join(os.environ.get("USERPROFILE", os.path.expanduser("~")), "Pictures")
+        elif platform.system() == "Darwin":  # macOS
+            # On macOS, Pictures is in the user's home directory
+            pictures_dir = os.path.join(os.path.expanduser("~"), "Pictures")
+        else:  # Linux and other Unix-like
+            # On Linux, check for XDG_PICTURES_DIR or use ~/Pictures
+            try:
+                # Try to get the XDG Pictures directory using xdg-user-dir
+                result = subprocess.run(["xdg-user-dir", "PICTURES"], capture_output=True, text=True, check=True)
+                pictures_dir = result.stdout.strip()
+            except (subprocess.SubprocessError, FileNotFoundError):
+                # Fall back to ~/Pictures
+                pictures_dir = os.path.join(os.path.expanduser("~"), "Pictures")
+
+        # Verify the directory exists, otherwise fall back to home directory
+        if not os.path.isdir(pictures_dir):
+            pictures_dir = os.path.expanduser("~")
+
+        return pictures_dir
 
     def create_menu(self) -> None:
         """
@@ -311,6 +344,7 @@ class ImageSimilarityFinderGUI:
         filename = filedialog.askopenfilename(
             title="Select Query Image",
             filetypes=(("Image files", "*.jpg *.jpeg *.png *.bmp *.tiff *.webp *.gif"), ("All files", "*.*")),
+            initialdir=self.default_pictures_dir,  # Start in Pictures directory
         )
         if filename:
             self.query_image_path.set(filename)
@@ -324,7 +358,10 @@ class ImageSimilarityFinderGUI:
         This method displays a directory dialog for the user to select a directory
         to search in, and adds it to the search_dirs list and the listbox display.
         """
-        directory = filedialog.askdirectory(title="Select Directory to Search")
+        directory = filedialog.askdirectory(
+            title="Select Directory to Search",
+            initialdir=self.default_pictures_dir,  # Start in Pictures directory
+        )
         if directory:
             self.search_dirs.append(directory)
             self.dirs_listbox.insert(tk.END, directory)
