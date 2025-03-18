@@ -11,6 +11,8 @@ A tool with both GUI and command-line interfaces that finds visually similar ima
 - Configurable number of results to display
 - User-friendly graphical interface with image preview
 - Command-line interface for automation and scripting
+- Type-safe implementation with Pydantic models
+- Robust error handling and validation
 - Easy installation and uninstallation
 
 ## Installation
@@ -124,6 +126,7 @@ Or use the separate uninstaller:
   - opencv-python: For computer vision algorithms
   - scikit-learn: For similarity calculations
   - tkinter: For the graphical user interface
+  - pydantic: For data validation and modeling
 
 ## Troubleshooting
 

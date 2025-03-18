@@ -27,7 +27,7 @@ fi
 
 # Install required packages
 echo -e "${YELLOW}Installing required Python packages...${NC}"
-python3 -m pip install numpy pillow opencv-python scikit-learn argparse pathlib tk
+python3 -m pip install numpy pillow opencv-python scikit-learn argparse pathlib tk pydantic
 
 # Copy the main script from the same directory
 if [ -f "$SCRIPT_DIR/image_finder.py" ]; then
