@@ -9,11 +9,13 @@ Classes:
 """
 
 import tkinter as tk
-from tkinter import filedialog, ttk, messagebox
+from tkinter import filedialog, ttk, messagebox, Menu
 import threading
 import queue
+import sys
 from typing import List, Optional
 from PIL import Image, ImageTk
+from pathlib import Path
 
 from models import SearchConfig, SimilarityResult
 from finder import ImageSimilarityFinder
@@ -60,11 +62,89 @@ class ImageSimilarityFinderGUI:
         self.max_results = tk.IntVar(value=10)
         self.results: List[SimilarityResult] = []
 
+        # Create menu bar
+        self.create_menu()
+
         # Create the main layout
         self.create_widgets()
 
         # Queue for thread communication
         self.queue: queue.Queue = queue.Queue()
+
+    def create_menu(self) -> None:
+        """
+        Create the application menu bar.
+
+        This method creates a menu bar with File and Help menus, providing options
+        for file operations and application information.
+        """
+        # Create main menu bar
+        menubar = Menu(self.root)
+        self.root.config(menu=menubar)
+
+        # File menu
+        file_menu = Menu(menubar, tearoff=0)
+        menubar.add_cascade(label="File", menu=file_menu)
+        file_menu.add_command(label="Select Query Image", command=self.browse_query_image)
+        file_menu.add_command(label="Add Search Directory", command=self.add_search_dir)
+        file_menu.add_command(label="Clear Search Directories", command=self.clear_search_dirs)
+        file_menu.add_separator()
+        file_menu.add_command(label="Start Search", command=self.start_search)
+        file_menu.add_separator()
+        file_menu.add_command(label="Exit", command=self.exit_program)
+
+        # Help menu
+        help_menu = Menu(menubar, tearoff=0)
+        menubar.add_cascade(label="Help", menu=help_menu)
+        help_menu.add_command(label="About", command=self.show_about)
+        help_menu.add_command(label="Instructions", command=self.show_instructions)
+
+    def exit_program(self) -> None:
+        """
+        Exit the application after confirming with the user.
+
+        This method shows a confirmation dialog and exits the application
+        if the user confirms.
+        """
+        if messagebox.askokcancel("Exit", "Are you sure you want to exit?"):
+            self.root.destroy()
+            sys.exit(0)
+
+    def show_about(self) -> None:
+        """
+        Show information about the application.
+
+        This method displays an about dialog with version and author information.
+        """
+        messagebox.showinfo(
+            "About Image Similarity Finder",
+            "Image Similarity Finder v1.0.0\n\n"
+            "A tool that finds visually similar images across directories "
+            "using computer vision techniques.\n\n"
+            "Features:\n"
+            "- Find similar images across multiple directories\n"
+            "- Works with different image sizes and formats\n"
+            "- Adjustable similarity threshold\n\n"
+            "© 2025 Example Organization",
+        )
+
+    def show_instructions(self) -> None:
+        """
+        Show usage instructions for the application.
+
+        This method displays a dialog with instructions on how to use the application.
+        """
+        messagebox.showinfo(
+            "Instructions",
+            "How to use Image Similarity Finder:\n\n"
+            "1. Select a query image using 'File > Select Query Image' or the Browse button\n"
+            "2. Add directories to search in using 'File > Add Search Directory'\n"
+            "3. Adjust the similarity threshold as needed (higher = more similar)\n"
+            "4. Set the maximum number of results to display\n"
+            "5. Click 'Find Similar Images' to start the search\n"
+            "6. Results will appear in the list below, sorted by similarity\n"
+            "7. Click on any result to preview the image",
+        )
 
     def create_widgets(self) -> None:
         """
@@ -96,6 +176,7 @@ class ImageSimilarityFinderGUI:
         dirs_buttons_frame.grid(row=1, column=2, padx=5, pady=5)
         ttk.Button(dirs_buttons_frame, text="Add...", command=self.add_search_dir).pack(fill=tk.X, pady=2)
         ttk.Button(dirs_buttons_frame, text="Remove", command=self.remove_search_dir).pack(fill=tk.X, pady=2)
+        ttk.Button(dirs_buttons_frame, text="Clear All", command=self.clear_search_dirs).pack(fill=tk.X, pady=2)
 
         # Threshold and max results
         params_frame = ttk.Frame(input_frame)
@@ -166,6 +247,11 @@ class ImageSimilarityFinderGUI:
         self.image_display = ttk.Label(preview_frame)
         self.image_display.pack(fill=tk.BOTH, expand=True)
 
+        # Status bar
+        self.status_var = tk.StringVar(value="Ready")
+        status_bar = ttk.Label(self.root, textvariable=self.status_var, relief=tk.SUNKEN, anchor=tk.W)
+        status_bar.pack(side=tk.BOTTOM, fill=tk.X)
+
     def browse_query_image(self) -> None:
         """
         Open file browser to select a query image.
@@ -180,6 +266,7 @@ class ImageSimilarityFinderGUI:
         if filename:
             self.query_image_path.set(filename)
             self.show_image(filename)
+            self.status_var.set(f"Query image selected: {Path(filename).name}")
 
     def add_search_dir(self) -> None:
         """
@@ -192,6 +279,7 @@ class ImageSimilarityFinderGUI:
         if directory:
             self.search_dirs.append(directory)
             self.dirs_listbox.insert(tk.END, directory)
+            self.status_var.set(f"Added directory: {Path(directory).name}")
 
     def remove_search_dir(self) -> None:
         """
@@ -203,8 +291,26 @@ class ImageSimilarityFinderGUI:
         selection = self.dirs_listbox.curselection()
         if selection:
             index = selection[0]
+            dir_name = self.dirs_listbox.get(index)
             self.dirs_listbox.delete(index)
             self.search_dirs.pop(index)
+            self.status_var.set(f"Removed directory: {Path(dir_name).name}")
+        else:
+            messagebox.showinfo("Remove Directory", "Please select a directory to remove")
+
+    def clear_search_dirs(self) -> None:
+        """
+        Clear all search directories.
+
+        This method removes all directories from the search_dirs list and
+        clears the listbox display.
+        """
+        if self.search_dirs:
+            self.search_dirs.clear()
+            self.dirs_listbox.delete(0, tk.END)
+            self.status_var.set("All search directories cleared")
+        else:
+            messagebox.showinfo("Clear Directories", "No directories to clear")
 
     def update_progress(self, current: int, total: int) -> None:
         """
@@ -237,15 +343,19 @@ class ImageSimilarityFinderGUI:
                     _, progress_pct, text = msg
                     self.progress_var.set(progress_pct)
                     self.progress_label.config(text=text)
+                    self.status_var.set(text)
                 elif msg[0] == "results":
                     _, results = msg
                     self.display_results(results)
-                    messagebox.showinfo("Search Complete", f"Found {len(results)} similar images.")
+                    result_text = f"Found {len(results)} similar images"
+                    messagebox.showinfo("Search Complete", result_text)
                     self.progress_label.config(text="Search complete")
+                    self.status_var.set(result_text)
                 elif msg[0] == "error":
                     _, error_msg = msg
                     messagebox.showerror("Error", error_msg)
                     self.progress_label.config(text="")
+                    self.status_var.set(f"Error: {error_msg}")
 
                 self.queue.task_done()
         except queue.Empty:
@@ -333,6 +443,7 @@ class ImageSimilarityFinderGUI:
         # Reset progress
         self.progress_var.set(0)
         self.progress_label.config(text="Starting search...")
+        self.status_var.set("Starting search...")
 
         # Start search thread
         thread = threading.Thread(target=self.search_thread)
@@ -377,6 +488,10 @@ class ImageSimilarityFinderGUI:
             # Get the path from the second column
             path = self.results_tree.item(item, "values")[1]
             self.show_image(path)
+            # Update status bar
+            similarity = self.results_tree.item(item, "values")[0]
+            file_name = Path(path).name
+            self.status_var.set(f"Viewing: {file_name} (Similarity: {similarity})")
 
     def show_image(self, path: str) -> None:
         """
@@ -419,6 +534,7 @@ class ImageSimilarityFinderGUI:
         except Exception as e:
             print(f"Error displaying image: {str(e)}")
             self.image_display.config(image=None, text="Error displaying image")
+            self.status_var.set(f"Error displaying image: {str(e)}")
 
 
 def launch_gui() -> None:
@@ -429,4 +545,9 @@ def launch_gui() -> None:
     the ImageSimilarityFinderGUI application.
     """
     root = tk.Tk()
+    app = ImageSimilarityFinderGUI(root)
+
+    # Handle window close event
+    root.protocol("WM_DELETE_WINDOW", app.exit_program)
+
     root.mainloop()
