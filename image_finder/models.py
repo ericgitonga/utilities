@@ -1,98 +1,87 @@
 """
 Image Similarity Finder - Data Models
 
-This module defines the data models used by the Image Similarity Finder application.
-These models provide validation and structure for the application's data.
+This module defines the data models used throughout the application.
+It provides type-safe models with validation using Pydantic.
 
 Classes:
-    SearchConfig: Configuration settings for image similarity search
-    ImageFeatures: Container for image features extracted from an image
+    FilePath: Custom path type for file paths with validation
+    DirectoryPath: Custom path type for directory paths with validation
     SimilarityResult: Result of an image similarity comparison
+    SearchConfig: Configuration settings for image similarity search
 """
 
-import numpy as np
-from typing import List, Optional
-from pydantic import BaseModel, Field, validator, DirectoryPath, FilePath
+from pydantic import BaseModel, Field, validator
+from typing import List
+from pathlib import Path
 
 
-class SearchConfig(BaseModel):
-    """
-    Configuration settings for image similarity search.
+class FilePath(Path):
+    """Custom path type for file paths."""
 
-    This model validates and stores the parameters needed for an image similarity search,
-    ensuring that all values are within acceptable ranges and that paths exist.
+    @classmethod
+    def __get_validators__(cls):
+        yield cls.validate
 
-    Attributes:
-        query_image (FilePath): Path to the reference image to search for
-        search_dirs (List[DirectoryPath]): List of directories to search in
-        threshold (float): Similarity threshold (0-1) where 1 means identical
-        max_results (int): Maximum number of results to return
-    """
-
-    query_image: FilePath = Field(..., description="Path to the query image")
-    search_dirs: List[DirectoryPath] = Field(..., min_items=1, description="Directories to search in")
-    threshold: float = Field(0.7, ge=0.1, le=1.0, description="Similarity threshold (0-1)")
-    max_results: int = Field(10, ge=1, description="Maximum number of results to return")
-
-    @validator("threshold")
-    def validate_threshold(cls, v):
+    @classmethod
+    def validate(cls, v, field=None, values=None):
         """
-        Validate that the threshold is between 0.1 and 1.0.
+        Validate that the path exists and is a file.
 
         Args:
-            v (float): The threshold value to validate
+            v: The value to validate
+            field: The field being validated (added to match Pydantic's expected signature)
+            values: Values validated so far (added to match Pydantic's expected signature)
 
         Returns:
-            float: The validated threshold
+            Path: Validated path
 
         Raises:
-            ValueError: If threshold is outside the valid range
+            TypeError: If the path is not a string or Path object
+            ValueError: If the path does not exist or is not a file
         """
-        if v < 0.1 or v > 1.0:
-            raise ValueError("Threshold must be between 0.1 and 1.0")
-        return v
+        if not isinstance(v, (str, Path)):
+            raise TypeError("Path must be a string or Path object")
+        path = Path(v)
+        if not path.exists():
+            raise ValueError(f"File '{path}' does not exist")
+        if not path.is_file():
+            raise ValueError(f"'{path}' is not a file")
+        return path
 
-    @validator("max_results")
-    def validate_max_results(cls, v):
+
+class DirectoryPath(Path):
+    """Custom path type for directory paths."""
+
+    @classmethod
+    def __get_validators__(cls):
+        yield cls.validate
+
+    @classmethod
+    def validate(cls, v, field=None, values=None):
         """
-        Validate that max_results is at least 1.
+        Validate that the path exists and is a directory.
 
         Args:
-            v (int): The max_results value to validate
+            v: The value to validate
+            field: The field being validated (added to match Pydantic's expected signature)
+            values: Values validated so far (added to match Pydantic's expected signature)
 
         Returns:
-            int: The validated max_results
+            Path: Validated path
 
         Raises:
-            ValueError: If max_results is less than 1
+            TypeError: If the path is not a string or Path object
+            ValueError: If the path does not exist or is not a directory
         """
-        if v < 1:
-            raise ValueError("Max results must be at least 1")
-        return v
-
-
-class ImageFeatures(BaseModel):
-    """
-    Container for image features extracted from an image.
-
-    This model stores the feature vector extracted from an image along with its path.
-
-    Attributes:
-        features (Optional[np.ndarray]): Feature vector extracted from the image
-        path (FilePath): Path to the image file
-    """
-
-    features: Optional[np.ndarray] = None
-    path: FilePath
-
-    class Config:
-        """
-        Pydantic configuration for the ImageFeatures model.
-
-        This allows the model to handle arbitrary types like numpy arrays.
-        """
-
-        arbitrary_types_allowed = True
+        if not isinstance(v, (str, Path)):
+            raise TypeError("Path must be a string or Path object")
+        path = Path(v)
+        if not path.exists():
+            raise ValueError(f"Directory '{path}' does not exist")
+        if not path.is_dir():
+            raise ValueError(f"'{path}' is not a directory")
+        return path
 
 
 class SimilarityResult(BaseModel):
@@ -108,13 +97,80 @@ class SimilarityResult(BaseModel):
     """
 
     path: FilePath
-    similarity: float = Field(..., ge=0, le=1)
+    similarity: float = Field(..., ge=0)
+
+    @validator("similarity")
+    def clamp_similarity_to_valid_range(cls, v, values=None):
+        """
+        Ensure similarity value is in the valid range [0, 1].
+
+        This handles floating-point precision issues that might produce
+        values slightly larger than 1.0.
+
+        Args:
+            v (float): Similarity value
+            values: Values validated so far (added to match Pydantic's expected signature)
+
+        Returns:
+            float: Value clamped to range [0, 1]
+        """
+        return min(max(v, 0.0), 1.0)
 
     class Config:
         """
         Pydantic configuration for the SimilarityResult model.
 
         This allows the model to handle arbitrary types.
+        """
+
+        arbitrary_types_allowed = True
+
+
+class SearchConfig(BaseModel):
+    """
+    Configuration settings for image similarity search.
+
+    This model validates and stores the parameters needed for an image similarity search,
+    ensuring that all values are within acceptable ranges and that paths exist.
+
+    Attributes:
+        query_image (FilePath): Path to the reference image to search for
+        search_dirs (List[str]): List of directories to search in
+        threshold (float): Similarity threshold (0-1) where 1 means identical
+        max_results (int): Maximum number of results to return
+    """
+
+    query_image: FilePath
+    search_dirs: List[str]
+    threshold: float = Field(0.7, ge=0.1, le=1.0)
+    max_results: int = Field(10, ge=1)
+
+    @validator("search_dirs")
+    def validate_search_dirs(cls, dirs, values=None):
+        """
+        Validate that all search directories exist.
+
+        Args:
+            dirs (List[str]): List of directory paths
+            values: Values validated so far (added to match Pydantic's expected signature)
+
+        Returns:
+            List[str]: Validated directory paths
+
+        Raises:
+            ValueError: If any directory does not exist
+        """
+        for dir_path in dirs:
+            path = Path(dir_path)
+            if not path.exists():
+                raise ValueError(f"Directory '{path}' does not exist")
+            if not path.is_dir():
+                raise ValueError(f"'{path}' is not a directory")
+        return dirs
+
+    class Config:
+        """
+        Pydantic configuration for the SearchConfig model.
         """
 
         arbitrary_types_allowed = True

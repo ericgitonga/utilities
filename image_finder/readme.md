@@ -44,6 +44,12 @@ cd imagesim
 pip install -e .
 ```
 
+### Option 3: Using the install script (Linux/macOS)
+
+```bash
+./install.sh
+```
+
 ## Usage
 
 ### Graphical User Interface
@@ -66,6 +72,7 @@ The GUI provides:
 - Adjustable threshold with slider
 - Results with similarity scores
 - Image preview
+- Context menu for additional actions
 
 ### Command-line Interface
 
@@ -141,6 +148,31 @@ pytest
   - tkinter: For the graphical user interface
   - pydantic: For data validation and modeling
 
+## Troubleshooting
+
+### Common Issues
+
+1. **File not found errors**: Ensure the paths to images and directories exist and are accessible.
+
+2. **Pydantic validation errors**: Make sure file paths and directory paths exist before running searches.
+
+3. **Missing dependencies**: If you encounter import errors, ensure all required packages are installed:
+   ```bash
+   pip install numpy pillow opencv-python scikit-learn pydantic
+   ```
+
+4. **GUI not displaying**: Ensure Tkinter is properly installed with your Python distribution.
+
+5. **Low similarity scores**: Try adjusting the threshold parameter to find more matches.
+
+### Submitting Bug Reports
+
+If you encounter an issue not covered here, please submit a bug report with:
+- A detailed description of the problem
+- The error message and stack trace
+- Steps to reproduce the issue
+- Your environment information (OS, Python version)
+
 ## License
 
 MIT License
@@ -148,3 +180,9 @@ MIT License
 ## Contributing
 
 Contributions are welcome! Please feel free to submit a Pull Request.
+
+1. Fork the repository
+2. Create your feature branch (`git checkout -b feature/amazing-feature`)
+3. Commit your changes (`git commit -m 'Add some amazing feature'`)
+4. Push to the branch (`git push origin feature/amazing-feature`)
+5. Open a Pull Request

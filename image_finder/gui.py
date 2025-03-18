@@ -1,3 +1,13 @@
+"""
+Image Similarity Finder - Graphical User Interface
+
+This module implements the graphical user interface for the Image Similarity Finder.
+It provides a user-friendly way to select images, specify search parameters, and view results.
+
+Classes:
+    ImageSimilarityFinderGUI: GUI for the Image Similarity Finder
+"""
+
 import tkinter as tk
 from tkinter import filedialog, ttk, messagebox, Menu
 import threading
@@ -10,8 +20,15 @@ from typing import List, Optional
 from PIL import Image, ImageTk
 from pathlib import Path
 
-from models import SearchConfig, SimilarityResult
-from finder import ImageSimilarityFinder
+# Use try-except to handle both direct execution and package import
+try:
+    # Try importing as a package first (when installed)
+    from imagesim.models import SearchConfig, SimilarityResult
+    from imagesim.finder import ImageSimilarityFinder
+except ImportError:
+    # Fall back to direct import (when running from source)
+    from models import SearchConfig, SimilarityResult
+    from finder import ImageSimilarityFinder
 
 
 class ImageSimilarityFinderGUI:
@@ -455,25 +472,6 @@ class ImageSimilarityFinderGUI:
         # Setup queue processing
         self.process_queue()
 
-    def display_results(self, results: List[SimilarityResult]) -> None:
-        """
-        Display search results in the treeview.
-
-        This method clears the current results in the treeview and adds the new results.
-
-        Args:
-            results (List[SimilarityResult]): List of search results to display
-        """
-        self.results = results
-
-        # Clear current items
-        for item in self.results_tree.get_children():
-            self.results_tree.delete(item)
-
-        # Add new results
-        for result in results:
-            self.results_tree.insert("", tk.END, values=(f"{result.similarity:.4f}", str(result.path)))
-
     def on_result_select(self, event) -> None:
         """
         Handle selection of a result from the treeview.
@@ -494,15 +492,25 @@ class ImageSimilarityFinderGUI:
             similarity = self.results_tree.item(item, "values")[0]
             file_name = Path(path).name
             self.status_var.set(f"Viewing: {file_name} (Similarity: {similarity})")
-        """
-        Image Similarity Finder - Graphical User Interface
 
-        This module implements the graphical user interface for the Image Similarity Finder.
-        It provides a user-friendly way to select images, specify search parameters, and view results.
-
-        Classes:
-        ImageSimilarityFinderGUI: GUI for the Image Similarity Finder
+    def display_results(self, results: List[SimilarityResult]) -> None:
         """
+        Display search results in the treeview.
+
+        This method clears the current results in the treeview and adds the new results.
+
+        Args:
+            results (List[SimilarityResult]): List of search results to display
+        """
+        self.results = results
+
+        # Clear current items
+        for item in self.results_tree.get_children():
+            self.results_tree.delete(item)
+
+        # Add new results
+        for result in results:
+            self.results_tree.insert("", tk.END, values=(f"{result.similarity:.4f}", str(result.path)))
 
     def show_context_menu(self, event) -> None:
         """

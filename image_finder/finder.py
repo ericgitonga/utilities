@@ -12,8 +12,15 @@ import os
 from pathlib import Path
 from typing import List, Optional, Callable
 
-from models import SearchConfig, SimilarityResult
-from analyzer import ImageAnalyzer
+# Use try-except to handle both direct execution and package import
+try:
+    # Try importing as a package first (when installed)
+    from imagesim.models import SearchConfig, SimilarityResult
+    from imagesim.analyzer import ImageAnalyzer
+except ImportError:
+    # Fall back to direct import (when running from source)
+    from models import SearchConfig, SimilarityResult
+    from analyzer import ImageAnalyzer
 
 
 class ImageSimilarityFinder:

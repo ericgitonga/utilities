@@ -10,8 +10,15 @@ Usage:
     python main.py image.jpg dir1 dir2  # Runs in CLI mode with the specified arguments
 """
 
-from cli import parse_cli_args, run_cli
-from gui import launch_gui
+# Use try-except to handle both direct execution and package import
+try:
+    # Try importing as a package first (when installed)
+    from imagesim.cli import parse_cli_args, run_cli
+    from imagesim.gui import launch_gui
+except ImportError:
+    # Fall back to direct import (when running from source)
+    from cli import parse_cli_args, run_cli
+    from gui import launch_gui
 
 
 def main() -> None:

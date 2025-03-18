@@ -1,10 +1,3 @@
-"""
-Image Similarity Finder - Setup Script
-
-This module provides setup and installation instructions for the Image Similarity Finder.
-It uses setuptools to create a Python package that can be installed with pip.
-"""
-
 from setuptools import setup, find_packages
 
 setup(
@@ -13,7 +6,7 @@ setup(
     packages=find_packages(),
     entry_points={
         "console_scripts": [
-            "imagesim=main:main",
+            "imagesim=imagesim.__main__:main",  # Updated to use __main__.py
         ],
     },
     install_requires=[
@@ -23,7 +16,7 @@ setup(
         "scikit-learn",
         "pydantic",
     ],
-    author="Claude AI",
+    author="Eric Gitonga",  # Changed to match other files
     author_email="example@example.com",
     description="A tool that finds visually similar images across directories",
     long_description=open("README.md").read(),

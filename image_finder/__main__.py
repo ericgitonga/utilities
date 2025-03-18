@@ -1,27 +1,21 @@
 """
-Image Similarity Finder - Command Line Interface
+Image Similarity Finder - Main Package Entry Point
 
-This module implements the command line interface for the Image Similarity Finder.
-It provides functionality to parse command line arguments and run the finder in CLI mode.
+This allows the package to be executed directly:
+python -m imagesim
 
-Functions:
-    parse_cli_args: Parse command line arguments and create a SearchConfig
-    run_cli: Run the finder in CLI mode with the provided config
+It directly contains the main functionality rather than importing
+to avoid potential import issues.
 """
 
 import sys
 import argparse
 from typing import Optional
 
-# Use try-except to handle both direct execution and package import
-try:
-    # Try importing as a package first (when installed)
-    from imagesim.models import SearchConfig
-    from imagesim.finder import ImageSimilarityFinder
-except ImportError:
-    # Fall back to direct import (when running from source)
-    from models import SearchConfig
-    from finder import ImageSimilarityFinder
+# These imports will be relative to the installation directory
+from imagesim.models import SearchConfig
+from imagesim.finder import ImageSimilarityFinder
+import imagesim.gui as gui_module
 
 
 def parse_cli_args() -> Optional[SearchConfig]:
@@ -33,9 +27,6 @@ def parse_cli_args() -> Optional[SearchConfig]:
 
     Returns:
         Optional[SearchConfig]: SearchConfig object if valid CLI args, None otherwise
-
-    Note:
-        Returns None if GUI mode is requested or if insufficient arguments are provided
     """
     parser = argparse.ArgumentParser(
         description="Find similar images across directories", formatter_class=argparse.ArgumentDefaultsHelpFormatter
@@ -50,7 +41,7 @@ def parse_cli_args() -> Optional[SearchConfig]:
     args = parser.parse_args()
 
     # Check if GUI mode is requested
-    if args.gui:
+    if args.gui or (not args.query_image and not args.search_dirs):
         return None
 
     # Validate and create config if CLI mode
@@ -68,12 +59,9 @@ def parse_cli_args() -> Optional[SearchConfig]:
             parser.print_help()
             sys.exit(1)
     else:
-        # If not enough arguments for CLI mode and not explicitly requesting GUI,
-        # print help and exit
-        if not args.gui:
-            parser.print_help()
-            sys.exit(1)
-        return None
+        # Print help if not enough arguments for CLI mode
+        parser.print_help()
+        sys.exit(1)
 
 
 def run_cli(config: SearchConfig) -> None:
@@ -107,3 +95,19 @@ def run_cli(config: SearchConfig) -> None:
 
         for result in results:
             print(f"{result.similarity:^12.4f} | {result.path}")
+
+
+def main():
+    """Main entry point for the application."""
+    config = parse_cli_args()
+
+    if config is None:
+        # Start GUI
+        gui_module.launch_gui()
+    else:
+        # Run CLI mode
+        run_cli(config)
+
+
+if __name__ == "__main__":
+    main()
