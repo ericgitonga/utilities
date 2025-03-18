@@ -1,3 +1,19 @@
+"""
+Image Similarity Finder
+
+A tool that finds visually similar images across directories using computer vision techniques.
+Supports both GUI and command-line interfaces.
+
+This module provides functionality to:
+1. Extract features from images using Histogram of Oriented Gradients (HOG)
+2. Compare images based on feature similarity
+3. Search directories for images similar to a reference image
+4. Present results through a GUI or command line
+
+Author: Claude AI
+License: MIT
+"""
+
 import os
 import sys
 import numpy as np
@@ -15,7 +31,18 @@ from pydantic import BaseModel, Field, validator, DirectoryPath, FilePath
 
 
 class SearchConfig(BaseModel):
-    """Configuration settings for image similarity search"""
+    """
+    Configuration settings for image similarity search.
+
+    This model validates and stores the parameters needed for an image similarity search,
+    ensuring that all values are within acceptable ranges and that paths exist.
+
+    Attributes:
+        query_image (FilePath): Path to the reference image to search for
+        search_dirs (List[DirectoryPath]): List of directories to search in
+        threshold (float): Similarity threshold (0-1) where 1 means identical
+        max_results (int): Maximum number of results to return
+    """
 
     query_image: FilePath = Field(..., description="Path to the query image")
     search_dirs: List[DirectoryPath] = Field(..., min_items=1, description="Directories to search in")
@@ -24,45 +51,114 @@ class SearchConfig(BaseModel):
 
     @validator("threshold")
     def validate_threshold(cls, v):
+        """
+        Validate that the threshold is between 0.1 and 1.0.
+
+        Args:
+            v (float): The threshold value to validate
+
+        Returns:
+            float: The validated threshold
+
+        Raises:
+            ValueError: If threshold is outside the valid range
+        """
         if v < 0.1 or v > 1.0:
             raise ValueError("Threshold must be between 0.1 and 1.0")
         return v
 
     @validator("max_results")
     def validate_max_results(cls, v):
+        """
+        Validate that max_results is at least 1.
+
+        Args:
+            v (int): The max_results value to validate
+
+        Returns:
+            int: The validated max_results
+
+        Raises:
+            ValueError: If max_results is less than 1
+        """
         if v < 1:
             raise ValueError("Max results must be at least 1")
         return v
 
 
 class ImageFeatures(BaseModel):
-    """Container for image features"""
+    """
+    Container for image features extracted from an image.
+
+    This model stores the feature vector extracted from an image along with its path.
+
+    Attributes:
+        features (Optional[np.ndarray]): Feature vector extracted from the image
+        path (FilePath): Path to the image file
+    """
 
     features: Optional[np.ndarray] = None
     path: FilePath
 
     class Config:
+        """
+        Pydantic configuration for the ImageFeatures model.
+
+        This allows the model to handle arbitrary types like numpy arrays.
+        """
+
         arbitrary_types_allowed = True
 
 
 class SimilarityResult(BaseModel):
-    """Result of image similarity comparison"""
+    """
+    Result of an image similarity comparison.
+
+    This model represents a single result from a similarity search,
+    including the path to the matched image and its similarity score.
+
+    Attributes:
+        path (FilePath): Path to the similar image
+        similarity (float): Similarity score between 0 and 1
+    """
 
     path: FilePath
     similarity: float = Field(..., ge=0, le=1)
 
     class Config:
+        """
+        Pydantic configuration for the SimilarityResult model.
+
+        This allows the model to handle arbitrary types.
+        """
+
         arbitrary_types_allowed = True
 
 
 class ImageAnalyzer:
-    """Class for analyzing and comparing images"""
+    """
+    Class for analyzing and comparing images.
+
+    This class provides methods to extract features from images and
+    calculate similarity between images based on their features.
+    """
 
     @staticmethod
     def extract_features(image_path: Union[str, Path]) -> Optional[np.ndarray]:
         """
-        Extract features from an image using HOG.
-        Returns a feature vector that represents the image.
+        Extract features from an image using Histogram of Oriented Gradients (HOG).
+
+        This method loads an image, converts it to grayscale, extracts HOG features,
+        and normalizes the feature vector.
+
+        Args:
+            image_path (Union[str, Path]): Path to the image file
+
+        Returns:
+            Optional[np.ndarray]: Normalized feature vector or None if extraction fails
+
+        Raises:
+            No exceptions, but prints error messages if processing fails
         """
         try:
             # Read the image
@@ -100,7 +196,19 @@ class ImageAnalyzer:
     def calculate_similarity(features1: np.ndarray, features2: np.ndarray) -> float:
         """
         Calculate cosine similarity between two feature vectors.
-        Returns a value between 0 and 1, where 1 means identical.
+
+        This method compares two feature vectors using cosine similarity,
+        which measures the cosine of the angle between them.
+
+        Args:
+            features1 (np.ndarray): First feature vector
+            features2 (np.ndarray): Second feature vector
+
+        Returns:
+            float: Similarity score between 0 and 1, where 1 means identical
+
+        Note:
+            Returns 0 if either feature vector is None
         """
         if features1 is None or features2 is None:
             return 0
@@ -113,9 +221,25 @@ class ImageAnalyzer:
 
 
 class ImageSimilarityFinder:
-    """Main class for finding similar images"""
+    """
+    Main class for finding similar images.
+
+    This class implements the core functionality for finding images similar to a
+    reference image across multiple directories.
+
+    Attributes:
+        config (SearchConfig): Configuration for the search
+        analyzer (ImageAnalyzer): Image analyzer used for feature extraction and comparison
+        supported_extensions (set): Set of supported image file extensions
+    """
 
     def __init__(self, config: SearchConfig):
+        """
+        Initialize the ImageSimilarityFinder with a search configuration.
+
+        Args:
+            config (SearchConfig): Configuration for the search
+        """
         self.config = config
         self.analyzer = ImageAnalyzer()
         self.supported_extensions = {".jpg", ".jpeg", ".png", ".bmp", ".tiff", ".webp", ".gif"}
@@ -126,11 +250,18 @@ class ImageSimilarityFinder:
         """
         Find images similar to the query image in the search directories.
 
+        This method extracts features from the query image, then searches through
+        the specified directories for similar images based on feature comparison.
+
         Args:
             progress_callback: Optional callback function for progress updates
+                Takes two parameters: current progress and total items
 
         Returns:
-            List of SimilarityResult objects sorted by similarity
+            List[SimilarityResult]: List of SimilarityResult objects sorted by similarity
+
+        Note:
+            The search can be time-consuming for large directories with many images
         """
         # Extract features from the query image
         query_features = self.analyzer.extract_features(self.config.query_image)
@@ -173,7 +304,18 @@ class ImageSimilarityFinder:
         return results[: self.config.max_results]
 
     def _get_image_files(self) -> List[Path]:
-        """Get all image files from the search directories"""
+        """
+        Get all image files from the search directories.
+
+        This method recursively walks through all search directories and collects
+        paths to image files with supported extensions.
+
+        Returns:
+            List[Path]: List of paths to image files
+
+        Note:
+            Skips the query image itself to avoid self-matches
+        """
         image_files: List[Path] = []
 
         for search_dir in self.config.search_dirs:
@@ -195,9 +337,30 @@ class ImageSimilarityFinder:
 
 
 class ImageSimilarityFinderGUI:
-    """GUI for the Image Similarity Finder"""
+    """
+    GUI for the Image Similarity Finder.
+
+    This class implements a graphical user interface for the image similarity finder,
+    allowing users to select images, specify search directories, adjust parameters,
+    and view results in a visual manner.
+
+    Attributes:
+        root (tk.Tk): Tkinter root window
+        query_image_path (tk.StringVar): Path to the query image
+        search_dirs (List[str]): List of directories to search in
+        threshold (tk.DoubleVar): Similarity threshold
+        max_results (tk.IntVar): Maximum number of results
+        results (List[SimilarityResult]): List of search results
+        queue (queue.Queue): Queue for thread communication
+    """
 
     def __init__(self, root):
+        """
+        Initialize the GUI.
+
+        Args:
+            root (tk.Tk): Tkinter root window
+        """
         self.root = root
         self.root.title("Image Similarity Finder")
         self.root.geometry("800x600")
@@ -221,7 +384,12 @@ class ImageSimilarityFinderGUI:
         self.queue: queue.Queue = queue.Queue()
 
     def create_widgets(self) -> None:
-        """Create and arrange all widgets for the GUI"""
+        """
+        Create and arrange all widgets for the GUI.
+
+        This method creates the main layout of the GUI, including input fields,
+        buttons, progress indicators, results list, and image preview area.
+        """
         # Create a main frame with padding
         main_frame = ttk.Frame(self.root, padding="10")
         main_frame.pack(fill=tk.BOTH, expand=True)
@@ -259,6 +427,12 @@ class ImageSimilarityFinderGUI:
 
         # Update threshold label when slider changes
         def update_threshold_label(*args):
+            """
+            Update the threshold label when the slider value changes.
+
+            Args:
+                *args: Variable arguments (required for trace_add callback)
+            """
             self.threshold_label.config(text=f"{self.threshold.get():.2f}")
 
         self.threshold.trace_add("write", update_threshold_label)
@@ -310,7 +484,12 @@ class ImageSimilarityFinderGUI:
         self.image_display.pack(fill=tk.BOTH, expand=True)
 
     def browse_query_image(self) -> None:
-        """Browse for query image file"""
+        """
+        Open file browser to select a query image.
+
+        This method displays a file dialog for the user to select an image file,
+        updates the query_image_path variable, and shows a preview of the selected image.
+        """
         filename = filedialog.askopenfilename(
             title="Select Query Image",
             filetypes=(("Image files", "*.jpg *.jpeg *.png *.bmp *.tiff *.webp *.gif"), ("All files", "*.*")),
@@ -320,14 +499,24 @@ class ImageSimilarityFinderGUI:
             self.show_image(filename)
 
     def add_search_dir(self) -> None:
-        """Add a directory to search in"""
+        """
+        Open directory browser to add a search directory.
+
+        This method displays a directory dialog for the user to select a directory
+        to search in, and adds it to the search_dirs list and the listbox display.
+        """
         directory = filedialog.askdirectory(title="Select Directory to Search")
         if directory:
             self.search_dirs.append(directory)
             self.dirs_listbox.insert(tk.END, directory)
 
     def remove_search_dir(self) -> None:
-        """Remove selected directory from search list"""
+        """
+        Remove the selected directory from the search list.
+
+        This method removes the currently selected directory from the search_dirs list
+        and the listbox display.
+        """
         selection = self.dirs_listbox.curselection()
         if selection:
             index = selection[0]
@@ -335,12 +524,29 @@ class ImageSimilarityFinderGUI:
             self.search_dirs.pop(index)
 
     def update_progress(self, current: int, total: int) -> None:
-        """Update the progress bar and status text"""
+        """
+        Update the progress bar and status text.
+
+        This method is called by the search thread to report progress.
+        It puts a progress update message in the queue for the main thread to process.
+
+        Args:
+            current (int): Current progress (number of images processed)
+            total (int): Total items to process
+        """
         progress_pct = (current / total) * 100 if total > 0 else 0
         self.queue.put(("progress", progress_pct, f"Processing image {current} of {total}"))
 
     def process_queue(self) -> None:
-        """Handle messages from the search thread"""
+        """
+        Handle messages from the search thread.
+
+        This method processes messages from the queue, which includes progress updates,
+        search results, and error messages. It updates the GUI accordingly.
+
+        Note:
+            This method is called repeatedly by the event loop to check for new messages
+        """
         try:
             while True:
                 msg = self.queue.get_nowait()
@@ -366,7 +572,18 @@ class ImageSimilarityFinderGUI:
             self.root.after(100, self.process_queue)
 
     def create_search_config(self) -> Optional[SearchConfig]:
-        """Create search configuration from GUI inputs"""
+        """
+        Create search configuration from GUI inputs.
+
+        This method reads the current values from the GUI and creates a SearchConfig
+        object with validation.
+
+        Returns:
+            Optional[SearchConfig]: Validated search configuration or None if validation fails
+
+        Note:
+            If validation fails, an error message is put in the queue
+        """
         try:
             query_image = self.query_image_path.get()
             search_dirs = self.search_dirs
@@ -392,7 +609,15 @@ class ImageSimilarityFinderGUI:
             return None
 
     def search_thread(self) -> None:
-        """Perform the search in a background thread"""
+        """
+        Perform the search in a background thread.
+
+        This method is run in a separate thread to keep the GUI responsive during
+        potentially long-running search operations.
+
+        Note:
+            Results and errors are communicated back to the main thread via the queue
+        """
         try:
             # Create search config
             config = self.create_search_config()
@@ -412,7 +637,12 @@ class ImageSimilarityFinderGUI:
             self.queue.put(("error", f"Error during search: {str(e)}"))
 
     def start_search(self) -> None:
-        """Start the search process in a separate thread"""
+        """
+        Start the search process in a separate thread.
+
+        This method clears previous results, resets the progress bar,
+        and starts a new thread to perform the search.
+        """
         # Clear previous results
         for item in self.results_tree.get_children():
             self.results_tree.delete(item)
@@ -430,7 +660,14 @@ class ImageSimilarityFinderGUI:
         self.process_queue()
 
     def display_results(self, results: List[SimilarityResult]) -> None:
-        """Display search results in the treeview"""
+        """
+        Display search results in the treeview.
+
+        This method clears the current results in the treeview and adds the new results.
+
+        Args:
+            results (List[SimilarityResult]): List of search results to display
+        """
         self.results = results
 
         # Clear current items
@@ -442,7 +679,15 @@ class ImageSimilarityFinderGUI:
             self.results_tree.insert("", tk.END, values=(f"{result.similarity:.4f}", str(result.path)))
 
     def on_result_select(self, event) -> None:
-        """Handle selection of a result from the treeview"""
+        """
+        Handle selection of a result from the treeview.
+
+        This method is called when the user selects a result in the treeview.
+        It displays the selected image in the preview area.
+
+        Args:
+            event: Tkinter event object (not used)
+        """
         selection = self.results_tree.selection()
         if selection:
             item = selection[0]
@@ -451,7 +696,15 @@ class ImageSimilarityFinderGUI:
             self.show_image(path)
 
     def show_image(self, path: str) -> None:
-        """Display an image in the preview area"""
+        """
+        Display an image in the preview area.
+
+        This method loads an image from the specified path, resizes it to fit
+        the preview area while maintaining aspect ratio, and displays it.
+
+        Args:
+            path (str): Path to the image file to display
+        """
         try:
             # Open and resize the image for display
             img = Image.open(path)
@@ -486,7 +739,18 @@ class ImageSimilarityFinderGUI:
 
 
 def parse_cli_args() -> Optional[SearchConfig]:
-    """Parse command line arguments and create a SearchConfig"""
+    """
+    Parse command line arguments and create a SearchConfig.
+
+    This function parses the command line arguments and creates a SearchConfig
+    object if valid arguments are provided.
+
+    Returns:
+        Optional[SearchConfig]: SearchConfig object if valid CLI args, None otherwise
+
+    Note:
+        Returns None if GUI mode is requested or if insufficient arguments are provided
+    """
     parser = argparse.ArgumentParser(description="Find similar images in directories")
     parser.add_argument("query_image", nargs="?", help="Path to the query image")
     parser.add_argument("search_dirs", nargs="*", help="Directories to search in")
@@ -524,13 +788,23 @@ def parse_cli_args() -> Optional[SearchConfig]:
 
 
 def launch_gui() -> None:
-    """Launch the GUI application"""
+    """
+    Launch the GUI application.
+
+    This function creates and initializes the Tkinter root window and
+    the ImageSimilarityFinderGUI application.
+    """
     root = tk.Tk()
     root.mainloop()
 
 
 def main() -> None:
-    """Main entry point for the application"""
+    """
+    Main entry point for the application.
+
+    This function parses command line arguments and starts either the GUI or
+    the command-line interface based on the arguments.
+    """
     config = parse_cli_args()
 
     # Start GUI if requested or if no valid CLI args
