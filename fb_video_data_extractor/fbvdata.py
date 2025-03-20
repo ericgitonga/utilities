@@ -2,6 +2,9 @@ import requests
 import os
 import pandas as pd
 import time
+import gspread
+from oauth2client.service_account import ServiceAccountCredentials
+from gspread_dataframe import set_with_dataframe
 
 
 class FacebookAPI:
@@ -215,13 +218,99 @@ class FacebookAPI:
                 try:
                     df[col] = pd.to_datetime(df[col])
                 except Exception as e:
-                    print(f"Error formatting time: {str(e)}")
+                    print(f"Error getting time: {e}")
                     pass
 
         # Save to CSV
         df.to_csv(file_name, index=False)
         print(f"Data exported to {file_name}")
         return file_name
+
+    def export_to_google_sheet(self, data, spreadsheet_name="Facebook Video Data", worksheet_name="Video Data"):
+        """
+        Export video data to Google Sheets
+
+        Parameters:
+        -----------
+        data : list
+            List of dictionaries containing video data
+        spreadsheet_name : str, optional
+            Name of the Google Spreadsheet
+        worksheet_name : str, optional
+            Name of the worksheet within the spreadsheet
+
+        Returns:
+        --------
+        str
+            URL of the Google Sheet
+        """
+        try:
+            # Create DataFrame
+            df = pd.DataFrame(data)
+
+            # Format datetime columns
+            for col in df.columns:
+                if "time" in col and df[col].dtype == "object":
+                    try:
+                        df[col] = pd.to_datetime(df[col])
+                        # Convert to string for Google Sheets compatibility
+                        df[col] = df[col].dt.strftime("%Y-%m-%d %H:%M:%S")
+                    except Exception as e:
+                        print(f"Error getting time: {e}")
+                        pass
+
+            # Setup Google Sheets authentication
+            scope = ["https://spreadsheets.google.com/feeds", "https://www.googleapis.com/auth/drive"]
+
+            # Look for credentials file
+            credentials_path = os.environ.get("GOOGLE_CREDENTIALS_PATH", "credentials.json")
+
+            if not os.path.exists(credentials_path):
+                raise FileNotFoundError(
+                    f"Google credentials file not found at {credentials_path}. "
+                    f"Please set GOOGLE_CREDENTIALS_PATH environment variable."
+                )
+
+            credentials = ServiceAccountCredentials.from_json_keyfile_name(credentials_path, scope)
+            gc = gspread.authorize(credentials)
+
+            # Try to open existing spreadsheet or create a new one
+            try:
+                spreadsheet = gc.open(spreadsheet_name)
+                print(f"Opened existing spreadsheet: {spreadsheet_name}")
+            except gspread.exceptions.SpreadsheetNotFound:
+                spreadsheet = gc.create(spreadsheet_name)
+                print(f"Created new spreadsheet: {spreadsheet_name}")
+
+                # Share with anyone who has the link (view only)
+                spreadsheet.share(None, perm_type="anyone", role="reader")
+
+            # Try to open existing worksheet or create a new one
+            try:
+                worksheet = spreadsheet.worksheet(worksheet_name)
+                # Clear existing content
+                worksheet.clear()
+                print(f"Cleared existing worksheet: {worksheet_name}")
+            except gspread.exceptions.WorksheetNotFound:
+                worksheet = spreadsheet.add_worksheet(title=worksheet_name, rows=df.shape[0] + 10, cols=df.shape[1] + 5)
+                print(f"Created new worksheet: {worksheet_name}")
+
+            # Write the DataFrame to Google Sheets
+            set_with_dataframe(worksheet, df, include_index=False, resize=True)
+
+            # Auto-resize columns to fit data
+            worksheet.columns_auto_resize(0, df.shape[1])
+
+            # Get the spreadsheet URL
+            spreadsheet_url = f"https://docs.google.com/spreadsheets/d/{spreadsheet.id}"
+            print(f"Data exported to Google Sheet: {spreadsheet_url}")
+
+            return spreadsheet_url
+
+        except Exception as e:
+            print(f"Error exporting to Google Sheets: {e}")
+            print("Falling back to CSV export...")
+            return self.export_to_csv(data)
 
 
 def get_all_facebook_video_data(page_id, access_token=None, max_videos=100):
@@ -260,9 +349,6 @@ def get_all_facebook_video_data(page_id, access_token=None, max_videos=100):
 
         if not video_id:
             continue
-
-        # Get additional video details
-        # details = fb_api.get_video_details(video_id)
 
         # Get video insights
         insights = fb_api.get_video_insights(video_id)
@@ -319,9 +405,14 @@ if __name__ == "__main__":
     PAGE_ID = "YOUR_PAGE_ID"  # The ID of the Facebook page
     ACCESS_TOKEN = "YOUR_ACCESS_TOKEN"  # Your Facebook Graph API access token
 
-    # To get environment variable instead
+    # Set environment variables for tokens and credentials
     # import os
     # ACCESS_TOKEN = os.environ.get('FACEBOOK_ACCESS_TOKEN')
+    # os.environ['GOOGLE_CREDENTIALS_PATH'] = 'path/to/your/credentials.json'
+
+    # Google Sheet settings
+    SPREADSHEET_NAME = "Facebook Video Analysis"
+    WORKSHEET_NAME = "Video Data"
 
     try:
         # Get all video data
@@ -330,15 +421,72 @@ if __name__ == "__main__":
         # Initialize API client
         fb_api = FacebookAPI(ACCESS_TOKEN)
 
-        # Export to CSV
+        # Export to Google Sheets
         if video_data:
-            fb_api.export_to_csv(video_data, "facebook_video_analysis.csv")
+            sheet_url = fb_api.export_to_google_sheet(
+                video_data, spreadsheet_name=SPREADSHEET_NAME, worksheet_name=WORKSHEET_NAME
+            )
+            print(f"Data available at: {sheet_url}")
+
+            # Also export to CSV as backup
+            fb_api.export_to_csv(video_data, "facebook_video_analysis_backup.csv")
 
         # Example: Get comments for a specific video
         if video_data:
             first_video_id = video_data[0]["id"]
             comments = fb_api.get_video_comments(first_video_id)
+
+            # If you want to export comments to another worksheet
+            if comments and "data" in comments and comments["data"]:
+                # Convert comments to list of dictionaries
+                comments_data = []
+                for comment in comments["data"]:
+                    comment_info = {
+                        "video_id": first_video_id,
+                        "comment_id": comment.get("id"),
+                        "message": comment.get("message"),
+                        "created_time": comment.get("created_time"),
+                        "like_count": comment.get("like_count"),
+                        "comment_count": comment.get("comment_count"),
+                        "from_name": comment.get("from", {}).get("name"),
+                        "from_id": comment.get("from", {}).get("id"),
+                    }
+                    comments_data.append(comment_info)
+
+                # Export comments to separate worksheet
+                fb_api.export_to_google_sheet(
+                    comments_data, spreadsheet_name=SPREADSHEET_NAME, worksheet_name="Video Comments"
+                )
+
             print(f"Retrieved {len(comments.get('data', []))} comments for video {first_video_id}")
 
     except Exception as e:
         print(f"Error running script: {e}")
+
+
+def setup_google_sheet_credentials():
+    """
+    Helper function to setup Google Sheets API credentials
+
+    1. Go to https://console.cloud.google.com/
+    2. Create a new project
+    3. Enable Google Sheets API and Google Drive API
+    4. Create a service account
+    5. Download the JSON key file
+    6. Share your Google Sheet with the service account email
+
+    Returns:
+    --------
+    None
+    """
+    print("To set up Google Sheets integration:")
+    print("1. Go to https://console.cloud.google.com/")
+    print("2. Create a new project")
+    print("3. Go to 'APIs & Services' > 'Library'")
+    print("4. Enable 'Google Sheets API' and 'Google Drive API'")
+    print("5. Go to 'APIs & Services' > 'Credentials'")
+    print("6. Click 'Create Credentials' > 'Service account'")
+    print("7. Fill in service account details and grant 'Editor' role")
+    print("8. Create a JSON key and download it")
+    print("9. Save the JSON file securely and set GOOGLE_CREDENTIALS_PATH environment variable")
+    print("10. If using an existing sheet, share it with the service account email address")
