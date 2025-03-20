@@ -1,0 +1,14 @@
+# Create a simple launcher script
+echo '#!/usr/bin/env python3
+import sys
+import os
+
+# Add the parent directory to Python path
+sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
+
+# Import and run main
+from imagesim.__main__ import main
+main()' > ~/anaconda3/envs/ds/bin/run_imagesim
+
+# Make it executable
+chmod +x ~/anaconda3/envs/ds/bin/run_imagesim

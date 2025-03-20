@@ -4,8 +4,7 @@ Image Similarity Finder - Main Package Entry Point
 This allows the package to be executed directly:
 python -m imagesim
 
-It directly contains the main functionality rather than importing
-to avoid potential import issues.
+This module serves as the main entry point for the application.
 """
 
 import sys
@@ -16,10 +15,10 @@ import argparse
 import tempfile
 from typing import Optional
 
-# These imports will be relative to the installation directory
+# Make direct imports from the package
 from imagesim.models import SearchConfig
 from imagesim.finder import ImageSimilarityFinder
-import imagesim.gui as gui_module
+from imagesim.gui import launch_gui
 
 
 def detach_terminal_linux():
@@ -231,7 +230,7 @@ def main():
 
     if config is None:
         # Start GUI
-        gui_module.launch_gui()
+        launch_gui()
     else:
         # Run CLI mode
         run_cli(config)
