@@ -58,12 +58,8 @@ class VideoDetailsDialog:
             video = self.video_data
 
         # Title
-        title_label = ttk.Label(
-            detail_frame,
-            text=video.get("title", video.get("display_title", "Untitled")),
-            font=("", 14, "bold"),
-            wraplength=550,
-        )
+        title_text = video.get("title", video.get("display_title", "Untitled"))
+        title_label = ttk.Label(detail_frame, text=title_text, font=("", 14, "bold"), wraplength=550)
         title_label.pack(fill=tk.X, pady=5)
 
         # Create a notebook for details
@@ -75,17 +71,7 @@ class VideoDetailsDialog:
         detail_notebook.add(basic_tab, text="Basic Info")
 
         # Format basic info text
-        info_text = (
-            f"Video ID: {video.get('id', 'N/A')}\n\n"
-            f"Created: {video.get('created_time', 'N/A')}\n"
-            f"Updated: {video.get('updated_time', 'N/A')}\n\n"
-            f"Duration: {video.get('duration', video.get('length', 0))} seconds\n\n"
-            f"Views: {video.get('views', 0):,}\n"
-            f"Comments: {video.get('comments_count', 0):,}\n"
-            f"Likes: {video.get('likes_count', 0):,}\n"
-            f"Shares: {video.get('shares_count', 0):,}\n\n"
-            f"URL: {video.get('permalink_url', 'N/A')}"
-        )
+        info_text = self._format_basic_info(video)
 
         # Display basic info
         info_display = scrolledtext.ScrolledText(basic_tab, wrap=tk.WORD, height=15)
@@ -97,6 +83,17 @@ class VideoDetailsDialog:
         url = video.get("permalink_url")
         if url:
             ttk.Button(basic_tab, text="Open in Browser", command=lambda: webbrowser.open(url)).pack(pady=5)
+
+        # Watch time tab
+        watch_tab = ttk.Frame(detail_notebook, padding=10)
+        detail_notebook.add(watch_tab, text="Watch Time")
+
+        watch_text = self._format_watch_time_info(video)
+
+        watch_display = scrolledtext.ScrolledText(watch_tab, wrap=tk.WORD, height=15)
+        watch_display.pack(fill=tk.BOTH, expand=True)
+        watch_display.insert(tk.END, watch_text)
+        watch_display.config(state=tk.DISABLED)
 
         # Description tab
         desc_tab = ttk.Frame(detail_notebook, padding=10)
@@ -110,21 +107,7 @@ class VideoDetailsDialog:
         desc_display.config(state=tk.DISABLED)
 
         # Insights tab if available
-        insights_keys = [key for key in video.keys() if key.startswith("total_")]
-        if insights_keys:
-            insights_tab = ttk.Frame(detail_notebook, padding=10)
-            detail_notebook.add(insights_tab, text="Insights")
-
-            insights_text = "Video Insights:\n\n"
-            for key in sorted(insights_keys):
-                # Format key for display
-                display_key = key.replace("total_", "").replace("_", " ").title()
-                insights_text += f"{display_key}: {video.get(key, 0):,}\n"
-
-            insights_display = scrolledtext.ScrolledText(insights_tab, wrap=tk.WORD, height=15)
-            insights_display.pack(fill=tk.BOTH, expand=True)
-            insights_display.insert(tk.END, insights_text)
-            insights_display.config(state=tk.DISABLED)
+        self._add_insights_tab(detail_notebook, video)
 
         # Raw Data tab
         raw_tab = ttk.Frame(detail_notebook, padding=10)
@@ -145,6 +128,60 @@ class VideoDetailsDialog:
 
         # Close button
         ttk.Button(detail_frame, text="Close", command=self.dialog.destroy).pack(pady=10)
+
+    def _format_basic_info(self, video):
+        """Format the basic info text."""
+        return (
+            f"Video ID: {video.get('id', 'N/A')}\n\n"
+            f"Created: {video.get('created_time', 'N/A')}\n"
+            f"Updated: {video.get('updated_time', 'N/A')}\n\n"
+            f"Duration: {video.get('duration', video.get('length', 0))} seconds\n\n"
+            f"Views: {video.get('views', 0):,}\n"
+            f"Reach: {video.get('reach', 0):,}\n"
+            f"Comments: {video.get('comments_count', 0):,}\n"
+            f"Likes: {video.get('likes_count', 0):,}\n"
+            f"Shares: {video.get('shares_count', 0):,}\n"
+            f"Saves: {video.get('saves_count', 0):,}\n"
+            f"Link Clicks: {video.get('link_clicks', 'N/A')}\n\n"
+            f"URL: {video.get('permalink_url', 'N/A')}"
+        )
+
+    def _format_watch_time_info(self, video):
+        """Format the watch time tab information."""
+        avg_watch = video.get("avg_watch_time", 0)
+        total_watch = video.get("total_watch_time", 0)
+        views_followers = video.get("views_from_followers", 0)
+        views_non_followers = video.get("views_from_non_followers", 0)
+        follower_pct = video.get("follower_percentage", 0)
+        non_follower_pct = 100 - follower_pct
+
+        return (
+            f"Average Watch Time: {avg_watch:.1f} seconds\n"
+            f"Total Watch Time: {total_watch:.1f} seconds\n\n"
+            f"Audience Breakdown:\n"
+            f"- From Followers: {views_followers:,} views ({follower_pct:.1f}%)\n"
+            f"- From Non-Followers: {views_non_followers:,} views ({non_follower_pct:.1f}%)\n"
+        )
+
+    def _add_insights_tab(self, notebook, video):
+        """Add insights tab if insights data is available."""
+        insights_keys = [key for key in video.keys() if key.startswith("total_")]
+        if not insights_keys:
+            return
+
+        insights_tab = ttk.Frame(notebook, padding=10)
+        notebook.add(insights_tab, text="Insights")
+
+        insights_text = "Video Insights:\n\n"
+        for key in sorted(insights_keys):
+            # Format key for display
+            display_key = key.replace("total_", "").replace("_", " ").title()
+            insights_text += f"{display_key}: {video.get(key, 0):,}\n"
+
+        insights_display = scrolledtext.ScrolledText(insights_tab, wrap=tk.WORD, height=15)
+        insights_display.pack(fill=tk.BOTH, expand=True)
+        insights_display.insert(tk.END, insights_text)
+        insights_display.config(state=tk.DISABLED)
 
 
 class GoogleExportSuccessDialog:
@@ -263,7 +300,6 @@ def show_file_export_success(parent, filepath):
         parent: Parent window
         filepath: Path to the exported file
     """
-    if messagebox.askyesno(
-        "Export Complete", f"Data exported to:\n{filepath}\n\nOpen containing folder?", parent=parent
-    ):
+    message = f"Data exported to:\n{filepath}\n\nOpen containing folder?"
+    if messagebox.askyesno("Export Complete", message, parent=parent):
         file_utils.open_directory(filepath)

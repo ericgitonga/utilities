@@ -31,6 +31,22 @@ class VideoData:
         self.comments_count = data.get("comments_count", 0)
         self.likes_count = data.get("likes_count", 0)
         self.shares_count = data.get("shares_count", 0)
+        self.saves_count = data.get("saves_count", 0)
+        self.reach = data.get("reach", 0)
+
+        # Watch time metrics
+        self.avg_watch_time = data.get("avg_watch_time", 0)
+        self.total_watch_time = data.get("total_watch_time", 0)
+
+        # Audience breakdown
+        self.views_from_followers = data.get("views_from_followers", 0)
+        self.views_from_non_followers = data.get("views_from_non_followers", 0)
+        self.follower_percentage = 0
+        if self.views and self.views_from_followers:
+            self.follower_percentage = (self.views_from_followers / self.views) * 100
+
+        # Link clicks
+        self.link_clicks = data.get("link_clicks", 0)
 
         # URL
         self.permalink_url = data.get("permalink_url", "")
@@ -116,10 +132,18 @@ class VideoData:
             "length": self.length,
             "duration": self.duration_formatted,
             "views": self.views,
+            "reach": getattr(self, "reach", 0),
             "comments_count": self.comments_count,
             "likes_count": self.likes_count,
             "shares_count": self.shares_count,
+            "saves_count": getattr(self, "saves_count", 0),
+            "link_clicks": getattr(self, "link_clicks", 0),
             "permalink_url": self.permalink_url,
+            "avg_watch_time": getattr(self, "avg_watch_time", 0),
+            "total_watch_time": getattr(self, "total_watch_time", 0),
+            "views_from_followers": getattr(self, "views_from_followers", 0),
+            "views_from_non_followers": getattr(self, "views_from_non_followers", 0),
+            "follower_percentage": getattr(self, "follower_percentage", 0),
         }
 
         # Add insights
@@ -196,24 +220,43 @@ class VideoDataCollection:
                 "average_views": 0,
                 "total_engagement": 0,
                 "average_engagement": 0,
+                "average_watch_time": 0,
+                "total_watch_time": 0,
             }
 
         total_views = sum(video.views for video in self.videos)
         total_comments = sum(video.comments_count for video in self.videos)
         total_likes = sum(video.likes_count for video in self.videos)
         total_shares = sum(video.shares_count for video in self.videos)
+        total_saves = sum(getattr(video, "saves_count", 0) for video in self.videos)
 
-        total_engagement = total_comments + total_likes + total_shares
+        # Watch time metrics
+        total_watch_time = sum(getattr(video, "total_watch_time", 0) for video in self.videos)
+        videos_with_watch_time = sum(
+            1 for video in self.videos if hasattr(video, "total_watch_time") and video.total_watch_time > 0
+        )
+        average_watch_time = total_watch_time / videos_with_watch_time if videos_with_watch_time > 0 else 0
+
+        # Engagement includes reactions, comments, shares, and saves
+        total_engagement = total_comments + total_likes + total_shares + total_saves
+
+        # Reach
+        total_reach = sum(getattr(video, "reach", 0) for video in self.videos)
 
         return {
             "total_videos": total_videos,
             "total_views": total_views,
             "average_views": total_views / total_videos,
+            "total_reach": total_reach,
+            "average_reach": total_reach / total_videos if total_videos > 0 else 0,
             "total_engagement": total_engagement,
             "average_engagement": total_engagement / total_videos,
             "total_comments": total_comments,
             "total_likes": total_likes,
             "total_shares": total_shares,
+            "total_saves": total_saves,
+            "total_watch_time": total_watch_time,
+            "average_watch_time": average_watch_time,
         }
 
     def to_dataframe(self) -> pd.DataFrame:

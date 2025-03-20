@@ -8,7 +8,7 @@ set -e  # Exit on error
 APP_NAME="fbvideodata"
 PACKAGE_NAME="facebook-video-data-tool"
 VERSION="1.0.0"
-MAINTAINER="Eric Gitonga <eric@example.com>"
+MAINTAINER="Eric Gitonga <gitonga@ericgitonga.com>"
 DESCRIPTION="Tool for retrieving and analyzing Facebook video data"
 ARCHITECTURE="all"  # Python apps are architecture-independent
 DEPENDS="python3 (>= 3.7), python3-pip, python3-tk, python3-requests, python3-pandas"

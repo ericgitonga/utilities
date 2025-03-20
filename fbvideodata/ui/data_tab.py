@@ -65,7 +65,7 @@ class DataTab:
         # Create Treeview
         self.tree = ttk.Treeview(
             tree_frame,
-            columns=("title", "created", "views", "comments", "likes", "shares"),
+            columns=("title", "created", "views", "reach", "comments", "likes", "shares", "avg_watch"),
             show="headings",
             selectmode="browse",
             yscrollcommand=vsb.set,
@@ -80,17 +80,21 @@ class DataTab:
         self.tree.heading("title", text="Title")
         self.tree.heading("created", text="Created Date")
         self.tree.heading("views", text="Views")
+        self.tree.heading("reach", text="Reach")
         self.tree.heading("comments", text="Comments")
         self.tree.heading("likes", text="Likes")
         self.tree.heading("shares", text="Shares")
+        self.tree.heading("avg_watch", text="Avg Watch")
 
         # Set column widths
         self.tree.column("title", width=200, minwidth=100)
         self.tree.column("created", width=150, minwidth=100)
-        self.tree.column("views", width=80, minwidth=50)
-        self.tree.column("comments", width=80, minwidth=50)
-        self.tree.column("likes", width=80, minwidth=50)
-        self.tree.column("shares", width=80, minwidth=50)
+        self.tree.column("views", width=70, minwidth=50)
+        self.tree.column("reach", width=70, minwidth=50)
+        self.tree.column("comments", width=70, minwidth=50)
+        self.tree.column("likes", width=70, minwidth=50)
+        self.tree.column("shares", width=70, minwidth=50)
+        self.tree.column("avg_watch", width=80, minwidth=70)
 
         self.tree.pack(fill=tk.BOTH, expand=True)
 
@@ -176,6 +180,11 @@ class DataTab:
             title = video.display_title
             created_time = video.created_time_formatted
 
+            # Format watch time to 1 decimal place if available
+            avg_watch = (
+                f"{video.avg_watch_time:.1f}s" if hasattr(video, "avg_watch_time") and video.avg_watch_time else "N/A"
+            )
+
             # Insert data into tree
             self.tree.insert(
                 "",
@@ -185,9 +194,11 @@ class DataTab:
                     title,
                     created_time,
                     f"{video.views:,}",
+                    f"{video.reach:,}" if hasattr(video, "reach") and video.reach else "N/A",
                     f"{video.comments_count:,}",
                     f"{video.likes_count:,}",
                     f"{video.shares_count:,}",
+                    avg_watch,
                 ),
             )
 
@@ -198,6 +209,7 @@ class DataTab:
             f"Total Videos: {stats['total_videos']} | "
             f"Total Views: {stats['total_views']:,} | "
             f"Average Views: {stats['average_views']:,.1f} | "
+            f"Average Watch Time: {stats.get('average_watch_time', 0):,.1f}s | "
             f"Total Engagements: {stats['total_engagement']:,}"
         )
 

@@ -85,6 +85,9 @@ class FacebookAPI:
             "comments.limit(0).summary(true)",
             "likes.limit(0).summary(true)",
             "shares",
+            "saved.limit(0).summary(true)",
+            "reach",
+            "video_insights{total_video_views,total_video_impressions,total_video_view_time,total_video_views_by_follower_status,total_video_views_by_distribution_type,total_video_view_time_by_age_bucket_and_gender,total_video_view_time_by_region_id,total_video_view_time_by_distribution_type}",
         ]
 
         # Build params
@@ -115,6 +118,7 @@ class FacebookAPI:
             "total_video_view_time",
             "total_video_complete_views",
             "total_video_30s_views",
+            "total_video_views_by_follower_status",
         ]
 
         # Get insights
@@ -147,10 +151,17 @@ class FacebookAPI:
                 "updated_time": video.get("updated_time", ""),
                 "length_seconds": video.get("length", 0),
                 "views": video.get("views", 0),
+                "reach": video.get("reach", 0),
                 "comments_count": video.get("comments_count", 0),
                 "likes_count": video.get("likes_count", 0),
                 "shares_count": video.get("shares_count", 0),
+                "saves_count": video.get("saves_count", 0),
                 "permalink_url": video.get("permalink_url", ""),
+                "avg_watch_time": video.get("avg_watch_time", 0),
+                "total_watch_time": video.get("total_watch_time", 0),
+                "views_from_followers": video.get("views_from_followers", 0),
+                "views_from_non_followers": video.get("views_from_non_followers", 0),
+                "follower_percentage": video.get("follower_percentage", 0),
             }
 
             # Add any insight metrics
@@ -212,26 +223,42 @@ def get_all_facebook_video_data(page_id, access_token, max_videos=25):
                 video["comments_count"] = video.get("comments", {}).get("summary", {}).get("total_count", 0)
                 video["likes_count"] = video.get("likes", {}).get("summary", {}).get("total_count", 0)
                 video["shares_count"] = video.get("shares", {}).get("count", 0)
-            except (KeyError, AttributeError):
+                video["saves_count"] = video.get("saved", {}).get("summary", {}).get("total_count", 0)
+
+                # Process video insights data
+                if "video_insights" in video and "data" in video["video_insights"]:
+                    insights_data = video["video_insights"]["data"]
+
+                    for insight in insights_data:
+                        name = insight.get("name")
+                        values = insight.get("values", [])
+
+                        if not values:
+                            continue
+
+                        value = values[0].get("value")
+
+                        if name == "total_video_view_time":
+                            # Convert to seconds
+                            video["total_watch_time"] = value / 1000 if isinstance(value, (int, float)) else 0
+                            if video["views"] > 0:
+                                video["avg_watch_time"] = video["total_watch_time"] / video["views"]
+                            else:
+                                video["avg_watch_time"] = 0
+
+                        elif name == "total_video_views_by_follower_status" and isinstance(value, dict):
+                            video["views_from_followers"] = value.get("follower", 0)
+                            video["views_from_non_followers"] = value.get("non_follower", 0)
+
+                        # Store the raw insight value too
+                        video[name] = value
+
+            except (KeyError, AttributeError) as e:
+                logger.log(f"Error extracting metrics for video {video.get('id')}: {e}")
                 video["comments_count"] = 0
                 video["likes_count"] = 0
                 video["shares_count"] = 0
-
-            # Try to get insights for each video
-            try:
-                video_id = video["id"]
-                insights_response = fb_api.get_video_insights(video_id)
-
-                if insights_response and "data" in insights_response:
-                    for insight in insights_response["data"]:
-                        name = insight.get("name")
-                        value = insight.get("values", [{}])[0].get("value", 0)
-
-                        # Add to video data
-                        if name:
-                            video[name] = value
-            except Exception as e:
-                logger.log(f"Error fetching insights for video {video.get('id')}: {e}")
+                video["saves_count"] = 0
 
             # Add to the list
             videos.append(video)

@@ -19,7 +19,7 @@ Copyright © 2025 Eric Gitonga. All rights reserved.
 
 #### Method 1: Using the Windows Installer (Recommended)
 
-1. Download the installer (`FBVideoDataTool_Setup.exe`) from the [Releases page](https://github.com/user/fbvideodata/releases)
+1. Download the installer (`FBVideoDataTool_Setup.exe`) from the [Releases page](https://github.com/ericgitonga/utilities/releases)
 2. Double-click the installer to start the installation process
 3. Follow the on-screen instructions
 4. Once installation is complete, you'll find the Facebook Video Data Tool in your Start Menu and on your Desktop
@@ -31,7 +31,7 @@ If the Windows installer isn't available, you can use the Python installer scrip
 1. Make sure you have Python 3.7 or newer installed
    - If not, download and install it from [python.org](https://www.python.org/downloads/)
    - During installation, check the option "Add Python to PATH"
-2. Download `install.py` from the [Releases page](https://github.com/user/fbvideodata/releases)
+2. Download `install.py` from the [Releases page](https://github.com/ericgitonga/utilities/releases)
 3. Right-click on `install.py` and select "Open with Python"
 4. The installer will automatically:
    - Install all necessary dependencies
@@ -43,7 +43,7 @@ If the Windows installer isn't available, you can use the Python installer scrip
 
 #### Method 1: Using the Debian Package (Ubuntu, Debian, Mint, etc.)
 
-1. Download the `.deb` package from the [Releases page](https://github.com/user/fbvideodata/releases)
+1. Download the `.deb` package from the [Releases page](https://github.com/ericgitonga/utilities/releases)
 2. Install it using one of these methods:
    - Double-click the `.deb` file and follow the prompts in your package manager
    - Or open a terminal and run: `sudo dpkg -i facebook-video-data-tool_1.0.0_all.deb`
@@ -59,7 +59,7 @@ For Linux distributions that don't use `.deb` packages:
    - For example, on Fedora: `sudo dnf install python3`
 2. Open a terminal and run:
    ```
-   wget https://github.com/user/fbvideodata/releases/download/v1.0.0/install.py
+   wget https://github.com/ericgitonga/utilities/releases/download/v1.0.0/install.py
    chmod +x install.py
    ./install.py
    ```
@@ -74,7 +74,7 @@ For Linux distributions that don't use `.deb` packages:
 If all else fails, you can install the application manually:
 
 1. Make sure Python 3.7 or newer and pip are installed
-2. Download the source code from the [Releases page](https://github.com/user/fbvideodata/releases)
+2. Download the source code from the [Releases page](https://github.com/ericgitonga/utilities/releases)
 3. Extract the zip file
 4. Open a terminal/command prompt in the extracted directory
 5. Install the requirements:
@@ -127,19 +127,20 @@ The Setup tab is where you configure your Facebook API connection:
 The Data tab displays video data and provides analysis:
 
 1. **Fetch Video Data**: Click this button to retrieve videos from the Facebook page
-   - Data is displayed in a table with columns for title, date, views, comments, likes, and shares
+   - Data is displayed in a table with columns for title, date, views, reach, comments, likes, shares, and watch time
    - You can sort by any column by clicking the column header
    
 2. **Clear Data**: Removes all currently loaded data
 
 3. **Statistics**: Shows a summary of your video data at the bottom
-   - Total videos, total views, average views, and total engagements
+   - Total videos, total views, average views, average watch time, and total engagements
    
 4. **Video Details**: Double-click any video to open a detailed view with:
-   - Basic information (title, ID, dates, metrics)
-   - Full description
-   - Engagement metrics
-   - Raw data for advanced users
+   - **Basic Info**: Title, ID, dates, views, reach, likes, comments, shares, saves
+   - **Watch Time**: Average watch time, total watch time, and audience breakdown (followers vs non-followers)
+   - **Description**: Full video description
+   - **Insights**: Additional metrics from Facebook
+   - **Raw Data**: Complete data in JSON format for advanced users
    - Link to open the video in your web browser
 
 ### Export Tab
@@ -159,6 +160,7 @@ The Export tab allows you to save your data for external use:
 4. **Export Data**: Creates your export file
    - For CSV exports, you'll be asked if you want to open the containing folder
    - For Google Sheets, you'll see a dialog with a link to the sheet
+   - All metrics (including watch time, reach, and audience breakdown) are automatically included in the exports
 
 ### Log Tab
 
@@ -181,7 +183,33 @@ The application menu provides additional functionality:
    - Check for Updates: Manually check if a new version is available
    - About: Shows version and copyright information
 
-### Tips for Best Results
+## Available Metrics
+
+The Facebook Video Data Tool retrieves and displays the following metrics:
+
+### Basic Metrics
+- **Views**: Total number of video views
+- **Reach**: Number of unique users who saw your video
+- **Comments**: Number of comments on the video
+- **Likes**: Number of likes/reactions received
+- **Shares**: Number of times the video was shared
+- **Saves**: Number of times users saved the video
+
+### Watch Time Metrics
+- **Average Watch Time**: Average time users spent watching the video
+- **Total Watch Time**: Cumulative watch time across all views
+
+### Audience Metrics
+- **Views from Followers**: Views by users who follow your page
+- **Views from Non-Followers**: Views by users who don't follow your page
+- **Follower Percentage**: Percentage of views from followers
+
+### Additional Insights
+- **Video impressions**: Number of times the video appeared in feeds
+- **Complete views**: Number of views where 95%+ of the video was watched
+- **Regional data**: View breakdown by geographical regions (where available)
+
+## Tips for Best Results
 
 1. **Use a Page Manager Token**: Access tokens generated as a page manager provide more data
 2. **Limit Initial Requests**: Start with a small number of videos to test
@@ -203,12 +231,17 @@ The application menu provides additional functionality:
    - Verify you have the correct permissions in your access token
    - Check if the page has restrictions on content access
 
-3. **Google Sheets Export Fails**:
+3. **Missing or Incomplete Metrics**:
+   - Some metrics require specific page sizes or minimum activity
+   - Verify you're using a Page token rather than a User token
+   - Recently published videos may not have complete metrics yet
+
+4. **Google Sheets Export Fails**:
    - Verify your Google API credentials are correct
    - Ensure the service account has permission to create/edit sheets
    - Check that you have an internet connection
 
-4. **Application Crashes**:
+5. **Application Crashes**:
    - Check the log tab for error details
    - Ensure all dependencies are installed
    - Verify you're using Python 3.7 or newer
@@ -218,7 +251,7 @@ The application menu provides additional functionality:
 If you encounter issues not covered in this guide:
 
 1. Check the log for error messages
-2. Visit the [GitHub Issues page](https://github.com/user/fbvideodata/issues) to see if others have reported similar problems
+2. Visit the [GitHub Issues page](https://github.com/ericgitonga/utilities/issues) to see if others have reported similar problems
 3. Open a new issue with details about your operating system, Python version, and the steps to reproduce the problem
 
 ## Privacy & Security
@@ -231,7 +264,7 @@ If you encounter issues not covered in this guide:
 
 - The application automatically checks for updates on startup
 - You can manually check for updates through the Help menu
-- New versions will be announced on the [GitHub Releases page](https://github.com/user/fbvideodata/releases)
+- New versions will be announced on the GitHub Releases page
 
 ## License
 
