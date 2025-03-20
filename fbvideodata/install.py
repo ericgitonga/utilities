@@ -18,7 +18,7 @@ import stat
 
 # Constants
 APP_NAME = "Facebook Video Data Tool"
-GITHUB_REPO = "https://github.com/user/fbvideodata/archive/main.zip"  # Replace with actual repo
+GITHUB_REPO = "https://github.com/ericgitonga/utilities/archive/refs/heads/eg/3-facebook-video-data-extractor.zip"
 DEPENDENCIES = [
     "requests>=2.25.0",
     "pandas>=1.1.5",
@@ -88,22 +88,31 @@ def download_application(target_dir):
 
         # Extract the ZIP file
         with zipfile.ZipFile(temp_path, "r") as zip_ref:
-            # Get the root folder name in the zip
+            # Get the root folder name in the zip (typically repository name + branch)
             root_folder = zip_ref.namelist()[0].split("/")[0]
-            zip_ref.extractall(target_dir)
 
-        # Move contents to the target directory
-        source_dir = os.path.join(target_dir, root_folder)
-        for item in os.listdir(source_dir):
-            s = os.path.join(source_dir, item)
-            d = os.path.join(target_dir, item)
-            if os.path.isdir(s):
-                shutil.copytree(s, d, dirs_exist_ok=True)
-            else:
-                shutil.copy2(s, d)
+            # Extract all files to a temporary directory
+            temp_extract_dir = tempfile.mkdtemp()
+            zip_ref.extractall(temp_extract_dir)
 
-        # Clean up the extracted root folder
-        shutil.rmtree(source_dir)
+            # Source directory is the fbvideodata subfolder
+            source_dir = os.path.join(temp_extract_dir, root_folder, "fbvideodata")
+
+            if not os.path.exists(source_dir):
+                print("❌ Could not find fbvideodata folder in the downloaded repository")
+                return False
+
+            # Copy the fbvideodata folder to the target directory
+            shutil.copytree(source_dir, os.path.join(target_dir, "fbvideodata"), dirs_exist_ok=True)
+
+            # Also copy other necessary files from the source directory
+            for file in ["setup.py", "requirements.txt", "README.md", "LICENSE", "fbv_icon.ico"]:
+                file_path = os.path.join(temp_extract_dir, root_folder, "fbvideodata", file)
+                if os.path.exists(file_path):
+                    shutil.copy2(file_path, target_dir)
+
+        # Clean up the temporary extraction directory
+        shutil.rmtree(temp_extract_dir)
 
         print(f"✅ {APP_NAME} downloaded and extracted to {target_dir}")
         return True
@@ -111,7 +120,7 @@ def download_application(target_dir):
         print(f"❌ Failed to download and extract application: {e}")
         return False
     finally:
-        # Clean up the temporary file
+        # Clean up the temporary zip file
         if os.path.exists(temp_path):
             os.unlink(temp_path)
 
@@ -129,18 +138,20 @@ def create_desktop_shortcut(install_dir):
             print("❌ Could not locate Desktop directory")
             return False
 
+    # Path to the main module
+    main_script = os.path.join(install_dir, "fbvideodata", "main.py")
+
     if platform.system() == "Windows":
         # Create Windows shortcut (.lnk file)
         try:
             import win32com.client
 
             shortcut_path = desktop_dir / f"{APP_NAME}.lnk"
-            target_path = os.path.join(install_dir, "fbvideodata", "main.py")
 
             shell = win32com.client.Dispatch("WScript.Shell")
             shortcut = shell.CreateShortCut(str(shortcut_path))
             shortcut.TargetPath = sys.executable
-            shortcut.Arguments = f'"{target_path}"'
+            shortcut.Arguments = f'"{main_script}"'
             shortcut.WorkingDirectory = install_dir
             shortcut.IconLocation = os.path.join(install_dir, "fbv_icon.ico")
             shortcut.save()
@@ -159,7 +170,7 @@ Version=1.0
 Type=Application
 Name={APP_NAME}
 Comment=Tool for retrieving and analyzing Facebook video data
-Exec={sys.executable} "{os.path.join(install_dir, 'fbvideodata', 'main.py')}"
+Exec={sys.executable} "{main_script}"
 Icon={os.path.join(install_dir, 'fbv_icon.ico')}
 Terminal=false
 Categories=Utility;
@@ -181,16 +192,17 @@ Categories=Utility;
 
 def create_start_script(install_dir):
     """Create a start script for easier launching."""
+    main_script = os.path.join(install_dir, "fbvideodata", "main.py")
     script_path = os.path.join(install_dir, "start_fbvideodata")
 
     if platform.system() == "Windows":
         script_path += ".bat"
         script_content = f"""@echo off
-"{sys.executable}" "{os.path.join(install_dir, 'fbvideodata', 'main.py')}"
+"{sys.executable}" "{main_script}"
 """
     else:  # Linux/Mac
         script_content = f"""#!/bin/bash
-"{sys.executable}" "{os.path.join(install_dir, 'fbvideodata', 'main.py')}"
+"{sys.executable}" "{main_script}"
 """
 
     try:
@@ -270,7 +282,7 @@ def main():
 
     print(f"\n✨ {APP_NAME} has been successfully installed! ✨")
     print(f"You can run it using the desktop shortcut or from: {os.path.join(install_dir, 'start_fbvideodata')}")
-    print("If you encounter any issues, please report them at: https://github.com/user/fbvideodata/issues")
+    print("If you encounter any issues, please report them at: https://github.com/ericgitonga/utilities/issues")
 
 
 if __name__ == "__main__":
