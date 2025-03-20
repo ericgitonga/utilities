@@ -1,5 +1,12 @@
+"""
+Setup script for the Facebook Video Data Tool application.
+"""
+
 import sys
 from cx_Freeze import setup, Executable
+
+from fbvideodata import __version__
+from fbvideodata.constants import APP_NAME, APP_DESCRIPTION, APP_ICON
 
 # Dependencies are automatically detected, but might need adjustments
 build_exe_options = {
@@ -13,11 +20,13 @@ build_exe_options = {
         "json",
         "threading",
         "datetime",
+        "fbvideodata",
     ],
     "excludes": [],
     "include_files": [
         "README.md",
         "LICENSE",
+        APP_ICON,
     ],
     "include_msvcr": True,
 }
@@ -28,17 +37,17 @@ if sys.platform == "win32":
     base = "Win32GUI"
 
 setup(
-    name="Facebook Video Data Tool",
-    version="1.0.0",
-    description="Tool for retrieving and analyzing Facebook video data",
+    name=APP_NAME,
+    version=__version__,
+    description=APP_DESCRIPTION,
     options={"build_exe": build_exe_options},
     executables=[
         Executable(
-            "fb_video_gui.py",
+            "fbvideodata/main.py",
             base=base,
             target_name="FBVideoDataTool.exe",
-            icon="fbv_icon.ico",
-            shortcut_name="Facebook Video Data Tool",
+            icon=APP_ICON,
+            shortcut_name=APP_NAME,
             shortcut_dir="DesktopFolder",
         )
     ],

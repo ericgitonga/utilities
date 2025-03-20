@@ -2,6 +2,8 @@
 
 A GUI application for non-programmers to easily retrieve, analyze, and export Facebook video data.
 
+Copyright © 2025 Eric Gitonga. All rights reserved.
+
 ## Features
 
 - **Simple Interface**: Easy-to-use GUI requiring no programming knowledge
@@ -32,7 +34,7 @@ If you prefer to run from source:
 1. Ensure you have Python 3.7+ installed
 2. Clone this repository or download the source code
 3. Install required packages: `pip install -r requirements.txt`
-4. Run the application: `python fb_video_gui.py`
+4. Run the application: `python -m fbvideodata.main`
 
 ## Getting Started
 
@@ -97,3 +99,7 @@ For Google Sheets export:
 ## License
 
 This software is released under the MIT License. See LICENSE file for details.
+
+## Copyright
+
+Copyright © 2025 Eric Gitonga. All rights reserved.
