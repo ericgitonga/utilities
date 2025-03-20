@@ -4,7 +4,7 @@ Entry point for the Facebook Video Data Tool application.
 
 import tkinter as tk
 import os
-from fbvideodata.ui import FacebookVideoDataApp
+import sys
 
 
 # Get the root directory of the package
@@ -16,11 +16,12 @@ def get_package_root():
 
 
 # Add package root to path if needed
-# package_root = get_package_root()
-# if package_root not in sys.path:
-#    sys.path.insert(0, package_root)
+package_root = get_package_root()
+if package_root not in sys.path:
+    sys.path.insert(0, package_root)
 
 # Import the app class
+from fbvideodata.ui import FacebookVideoDataApp  # noqa: E402
 
 
 def main():
