@@ -3,3 +3,5 @@
 *.png
 .ipynb_checkpoints
 __pycache__
+fbvideodata.json
+accesstoken
