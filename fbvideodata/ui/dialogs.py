@@ -121,7 +121,7 @@ class VideoDetailsDialog:
 
         # For Pydantic models, convert to dict for JSON serialization if needed
         if hasattr(raw_data, "dict"):
-            raw_data = raw_data.dict(exclude={"_raw_data"})
+            raw_data = raw_data.dict(exclude={"raw_data"})
 
         json_text = json.dumps(raw_data, indent=2)
 

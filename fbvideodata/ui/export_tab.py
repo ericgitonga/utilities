@@ -43,7 +43,7 @@ class ExportTab:
         self._build_ui()
 
         # Bind events
-        self.tab.bind("<FocusOut>", self._on_focus_out)
+        self.tab.bind("<FocusOut>", self.on_focus_out)
 
     def _build_ui(self):
         """Build the tab UI."""
@@ -213,7 +213,7 @@ class ExportTab:
         # Validate Google Sheets configuration using Pydantic
         try:
             # This will validate the credentials_path exists
-            # We're using this primarily for validation, not storing the result
+            # We don't need to store the result, just validate inputs
             GoogleSheetsConfig(
                 credentials_path=credentials_path,
                 spreadsheet_name=spreadsheet_name,
@@ -268,4 +268,11 @@ class ExportTab:
         """Update configuration from UI values."""
         # Update Pydantic config through property accessors
         self.config.export_format = self.export_format_var.get()
-        self.config.spreadsheet_name = self.spreadsheet
+        self.config.spreadsheet_name = self.spreadsheet_name_var.get()
+        self.config.worksheet_name = self.worksheet_name_var.get()
+        self.config.output_path = self.output_path_var.get()
+
+    def on_focus_out(self, event=None):
+        """Handle focus out event to update config."""
+        self.update_config()
+        self.config.save_settings()

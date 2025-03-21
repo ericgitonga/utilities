@@ -132,7 +132,7 @@ class FacebookAPI:
 
     def _make_request(self, endpoint, params=None):
         """
-        Make a request to the Facebook Graph API with improved error handling.
+        Updated method with more robust error handling and simplified request processing.
 
         Args:
             endpoint: API endpoint
@@ -186,65 +186,28 @@ class FacebookAPI:
 
             # Check for API errors in the response content
             if isinstance(content, dict) and "error" in content:
-                # Parse error details with Pydantic
-                try:
-                    error_response = FacebookErrorResponse(**content)
-                    error_message = f"API Error ({error_response.error.code}): {error_response.error.message}"
-                    self.logger.log(
-                        f"API Error: {error_response.error.code} {error_response.error.type} - "
-                        f"{error_response.error.message}"
-                    )
-                    raise ValueError(error_message)
-                except Exception:
-                    # Fall back to manual extraction if Pydantic validation fails
-                    error_details = content["error"]
-                    error_message = error_details.get("message", "Unknown error")
-                    error_code = error_details.get("code", "Unknown code")
-                    error_type = error_details.get("type", "Unknown type")
+                # Parse error details with detailed logging
+                error_details = content.get("error", {})
+                error_message = error_details.get("message", "Unknown error")
+                error_code = error_details.get("code", "Unknown code")
+                error_type = error_details.get("type", "Unknown type")
+                error_subcode = error_details.get("error_subcode")
 
-                    error_str = f"API Error ({error_code}): {error_message}"
-                    self.logger.log(f"API Error (manual parsing): {error_code} {error_type} - {error_message}")
-                    raise ValueError(error_str)
+                full_error_message = (
+                    f"API Error - " f"Code: {error_code}, " f"Type: {error_type}, " f"Message: {error_message}"
+                )
+                if error_subcode:
+                    full_error_message += f", Subcode: {error_subcode}"
+
+                self.logger.log(full_error_message)
+                raise ValueError(full_error_message)
 
             return content
 
-        except requests.exceptions.HTTPError as e:
-            self.logger.log(f"HTTP Error: {e}")
-
-            # Try to extract error details from response
-            error_message = f"HTTP Error: {e}"
-            try:
-                if hasattr(e, "response") and e.response is not None:
-                    try:
-                        error_content = e.response.json()
-                        if "error" in error_content:
-                            try:
-                                error_response = FacebookErrorResponse(**error_content)
-                                error_message = (
-                                    f"API Error ({error_response.error.code}): " f"{error_response.error.message}"
-                                )
-                            except Exception:
-                                # Manual extraction
-                                error_details = error_content["error"]
-                                error_message = error_details.get("message", "Unknown error")
-                                error_code = error_details.get("code", "Unknown code")
-                                error_message = f"API Error ({error_code}): {error_message}"
-                        # No need to else here as error_message is already set with HTTP error
-                    except (ValueError, json.JSONDecodeError):
-                        if hasattr(e, "response") and e.response is not None:
-                            self.logger.log(f"Response content: {e.response.text[:500]}")
-            except Exception as parse_error:
-                self.logger.log(f"Error parsing error response: {parse_error}")
-
-            raise ValueError(error_message)
-
         except requests.exceptions.RequestException as e:
-            self.logger.log(f"Request error: {e}")
-            raise ValueError(f"Connection error: {e}")
-
-        except Exception as e:
-            self.logger.log(f"Unexpected error: {e}")
-            raise ValueError(f"Unknown error: {e}")
+            error_message = f"Network Error: {e}"
+            self.logger.log(error_message)
+            raise ValueError(error_message)
 
     def test_api_versions(self, page_id) -> Tuple[bool, Optional[str], str]:
         """
@@ -258,27 +221,35 @@ class FacebookAPI:
                   version is the working API version or None,
                   message is a descriptive message
         """
+        # Updated list of API versions
         api_versions = ["v16.0", "v17.0", "v18.0"]
 
         for version in api_versions:
             self.logger.log(f"Testing with API version: {version}")
             url = f"https://graph.facebook.com/{version}/{page_id}/videos"
-            params = {"access_token": self.access_token, "limit": 1}
+
+            # Minimal fields to test connection
+            params = {"access_token": self.access_token, "fields": "id,created_time", "limit": 1}
 
             try:
                 response = requests.get(url, params=params)
                 self.logger.log(f"Direct API Status Code with {version}: {response.status_code}")
 
+                # Check for successful response
                 if response.status_code == 200:
-                    # We don't need to use the content, just checking if the request was successful
-                    self.logger.log(f"Success with version {version}")
+                    # Parse response to ensure it's valid
+                    content = response.json()
 
-                    # Update the API version
-                    orig_version = self.api_base_url
-                    self.api_base_url = f"https://graph.facebook.com/{version}/"
-                    self.logger.log(f"Updated API base URL from {orig_version} to {self.api_base_url}")
+                    # Validate basic structure
+                    if "data" in content and isinstance(content["data"], list):
+                        self.logger.log(f"Success with version {version}")
 
-                    return True, version, f"Successfully connected using API version {version}"
+                        # Update the API version
+                        orig_version = self.api_base_url
+                        self.api_base_url = f"https://graph.facebook.com/{version}/"
+                        self.logger.log(f"Updated API base URL from {orig_version} to {self.api_base_url}")
+
+                        return True, version, f"Successfully connected using API version {version}"
             except Exception as e:
                 self.logger.log(f"Error with version {version}: {e}")
 
@@ -287,36 +258,10 @@ class FacebookAPI:
 
     def get_page_videos(self, page_id, limit=25, after=None):
         """
-        Get videos for a Facebook page.
-
-        Args:
-            page_id: Facebook page ID
-            limit: Maximum number of videos to fetch
-            after: Pagination cursor
-
-        Returns:
-            FacebookVideosResponse: API response with video data
+        Simplified method to retrieve page videos with minimal fields.
         """
-        # Define fields to fetch
-        fields = [
-            "id",
-            "title",
-            "description",
-            "created_time",
-            "updated_time",
-            "permalink_url",
-            "length",
-            "views",
-            "comments.limit(0).summary(true)",
-            "likes.limit(0).summary(true)",
-            "shares",
-            "saved.limit(0).summary(true)",
-            "reach",
-            "video_insights{total_video_views,total_video_impressions,total_video_view_time,"
-            "total_video_views_by_follower_status,total_video_views_by_distribution_type,"
-            "total_video_view_time_by_age_bucket_and_gender,total_video_view_time_by_region_id,"
-            "total_video_view_time_by_distribution_type}",
-        ]
+        # Simplified fields list based on successful API Explorer request
+        fields = ["id", "title", "description", "created_time", "updated_time", "views"]
 
         # Build params
         params = {"fields": ",".join(fields), "limit": limit}
@@ -340,6 +285,7 @@ class FacebookAPI:
     def get_video_insights(self, video_id):
         """
         Get insights data for a specific video.
+        Simplified to use only currently available metrics.
 
         Args:
             video_id: Facebook video ID
@@ -347,15 +293,8 @@ class FacebookAPI:
         Returns:
             FacebookVideoInsightsResponse: API response with insights data
         """
-        # Define insights metrics
-        metrics = [
-            "total_video_views",
-            "total_video_impressions",
-            "total_video_view_time",
-            "total_video_complete_views",
-            "total_video_30s_views",
-            "total_video_views_by_follower_status",
-        ]
+        # Simplified list of metrics based on current API capabilities
+        metrics = ["total_video_views", "total_video_impressions", "total_video_view_time"]
 
         # Get insights
         endpoint = f"{video_id}/video_insights"
@@ -368,7 +307,7 @@ class FacebookAPI:
 
     def export_to_csv(self, video_data, filepath):
         """
-        Export video data to CSV file.
+        Export video data to CSV file with simplified data extraction.
 
         Args:
             video_data: List of video data dictionaries
@@ -377,49 +316,46 @@ class FacebookAPI:
         Returns:
             str: Path to the saved file
         """
-        # Process the data
+        # Process the data with more robust extraction
         processed_data = []
 
         for video in video_data:
-            # Extract basic data
+            # Safe extraction with default values
             video_processed = {
                 "id": video.get("id", ""),
                 "title": video.get("title", ""),
                 "description": video.get("description", ""),
                 "created_time": video.get("created_time", ""),
                 "updated_time": video.get("updated_time", ""),
-                "length_seconds": video.get("length", 0),
-                "views": video.get("views", 0),
-                "reach": video.get("reach", 0),
-                "comments_count": video.get("comments_count", 0),
-                "likes_count": video.get("likes_count", 0),
-                "shares_count": video.get("shares_count", 0),
-                "saves_count": video.get("saves_count", 0),
+                "length_seconds": video.get("length", 0) or 0,
+                "views": video.get("views", 0) or 0,
+                "reach": video.get("reach", 0) or 0,
+                "comments_count": video.get("comments_count", 0) or 0,
+                "likes_count": video.get("likes_count", 0) or 0,
                 "permalink_url": video.get("permalink_url", ""),
-                "avg_watch_time": video.get("avg_watch_time", 0),
-                "total_watch_time": video.get("total_watch_time", 0),
-                "views_from_followers": video.get("views_from_followers", 0),
-                "views_from_non_followers": video.get("views_from_non_followers", 0),
-                "follower_percentage": video.get("follower_percentage", 0),
             }
 
-            # Add any insight metrics
+            # Add any additional metrics that might be present
             for key in video:
-                if key.startswith("total_"):
+                # Conditionally add other numeric metrics
+                if key.startswith(("total_", "avg_")) and isinstance(video[key], (int, float)):
                     video_processed[key] = video[key]
 
             processed_data.append(video_processed)
 
-        # Create DataFrame and export
-        df = pd.DataFrame(processed_data)
-        df.to_csv(filepath, index=False)
-
-        return filepath
+        # Create DataFrame and export with error handling
+        try:
+            df = pd.DataFrame(processed_data)
+            df.to_csv(filepath, index=False)
+            return filepath
+        except Exception as e:
+            self.logger.log(f"Error exporting to CSV: {e}")
+            raise ValueError(f"Failed to export data to CSV: {e}")
 
 
 def get_all_facebook_video_data(page_id, access_token, max_videos=25):
     """
-    Retrieve all video data for a Facebook page.
+    Retrieve all video data for a Facebook page with improved error handling.
 
     Args:
         page_id: Facebook page ID
@@ -449,38 +385,49 @@ def get_all_facebook_video_data(page_id, access_token, max_videos=25):
     after = None
     total_fetched = 0
 
+    # Simplified fields list
+    fields = ["id", "title", "description", "created_time", "updated_time", "views", "permalink_url"]
+
     while total_fetched < max_videos:
         # Determine how many to fetch in this batch
         remaining = max_videos - total_fetched
         batch_limit = min(25, remaining)  # API limit is 25 per request
 
         try:
-            # Fetch batch
-            response = fb_api.get_page_videos(page_id, limit=batch_limit, after=after)
+            # Fetch batch with simplified fields
+            endpoint = f"{page_id}/videos"
+            params = {"fields": ",".join(fields), "limit": batch_limit}
 
-            if not response.data:
+            # Add pagination cursor if available
+            if after:
+                params["after"] = after
+
+            # Make the request
+            result = fb_api._make_request(endpoint, params)
+
+            # Validate the response
+            if not result or "data" not in result or not result["data"]:
+                logger.log("No more videos found.")
                 break
 
             # Process videos in this batch
-            batch_videos = response.data
+            batch_videos = result["data"]
             logger.log(f"Fetched {len(batch_videos)} videos (batch)")
 
-            # Process each video
-            for video in batch_videos:
-                # Convert to dict from Pydantic model
-                video_dict = video.dict()
-
-                # Add to the list
-                videos.append(video_dict)
+            # Add to total videos
+            videos.extend(batch_videos)
 
             # Update counts
             total_fetched += len(batch_videos)
             logger.log(f"Fetched {total_fetched}/{max_videos} videos (total)")
 
             # Check for more pages
-            if response.paging and response.paging.cursors and response.paging.cursors.after:
-                after = response.paging.cursors.after
-            else:
+            paging = result.get("paging", {})
+            cursors = paging.get("cursors", {})
+            after = cursors.get("after")
+
+            # Break if no more pages or reached max videos
+            if not after or total_fetched >= max_videos:
                 break
 
         except Exception as e:

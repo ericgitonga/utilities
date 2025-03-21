@@ -40,7 +40,7 @@ class SetupTab:
         self._build_ui()
 
         # Bind events
-        self.tab.bind("<FocusOut>", self._on_focus_out)
+        self.tab.bind("<FocusOut>", self.on_focus_out)
 
     def _build_ui(self):
         """Build the tab UI."""
@@ -328,11 +328,7 @@ class SetupTab:
                 # Replace API base URL
                 import re
 
-                new_content = re.sub(
-                    r'FB_API_BASE_URL\s*=\s*"[^"]*"',
-                    f'FB_API_BASE_URL = "https://graph.facebook.com/{version}/"',
-                    content,
-                )
+                new_content = re.sub(r'FB_API_VERSION\s*=\s*"[^"]*"', f'FB_API_VERSION = "{version}"', content)
 
                 if new_content != content:
                     with open(constants_path, "w") as f:
@@ -393,7 +389,7 @@ class SetupTab:
         if self.config.credentials_path and os.path.isfile(self.config.credentials_path):
             os.environ["GOOGLE_CREDENTIALS_PATH"] = self.config.credentials_path
 
-    def _on_focus_out(self, event=None):
+    def on_focus_out(self, event=None):
         """Handle focus out event to update config."""
         self.update_config()
         self.config.save_settings()

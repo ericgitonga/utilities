@@ -41,6 +41,9 @@ class DataTab:
         # Build UI
         self._build_ui()
 
+        # Bind events
+        self.tab.bind("<FocusOut>", self.on_focus_out)
+
     def _build_ui(self):
         """Build the tab UI."""
         # Control frame
@@ -249,3 +252,8 @@ class DataTab:
     def get_video_data(self):
         """Get the current video data collection."""
         return self.video_collection
+
+    def on_focus_out(self, event=None):
+        """Handle focus out event to update config."""
+        # Nothing to update for this tab
+        pass

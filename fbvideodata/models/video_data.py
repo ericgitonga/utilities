@@ -46,8 +46,8 @@ class VideoData(BaseModel):
     permalink_url: Optional[str] = Field(default="", description="Permanent URL to the video")
     insights: Optional[Dict[str, Any]] = Field(default_factory=dict, description="Raw insights data")
 
-    # Store raw data (excluded from serialization)
-    _raw_data: Dict[str, Any] = Field(default_factory=dict, exclude=True)
+    # Store raw data (renamed without leading underscore)
+    raw_data: Dict[str, Any] = Field(default_factory=dict, exclude=True)
 
     @validator("created_time", "updated_time", pre=True)
     def parse_datetime(cls, value):
@@ -109,8 +109,8 @@ class VideoData(BaseModel):
         if values.get("views", 0) > 0 and values.get("views_from_followers", 0) > 0:
             values["follower_percentage"] = (values["views_from_followers"] / values["views"]) * 100
 
-        # Store raw data for future reference
-        values["_raw_data"] = {k: v for k, v in values.items()}
+        # Store raw data for future reference (rename to avoid leading underscore)
+        values["raw_data"] = {k: v for k, v in values.items()}
 
         return values
 
@@ -154,7 +154,7 @@ class VideoData(BaseModel):
 
     def get_raw_data(self) -> Dict[str, Any]:
         """Get the original raw data."""
-        return self._raw_data
+        return self.raw_data
 
     def to_dict(self) -> Dict[str, Any]:
         """
