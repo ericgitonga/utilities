@@ -5,78 +5,114 @@ Video data models for the Facebook Video Data Tool application.
 import pandas as pd
 from datetime import datetime
 from typing import List, Dict, Any, Optional
+from pydantic import BaseModel, Field, validator, root_validator
 
 
-class VideoData:
-    """Model class for Facebook video data."""
+class VideoInsights(BaseModel):
+    """Pydantic model for video insights metrics."""
 
-    def __init__(self, data: Dict[str, Any]):
-        """
-        Initialize VideoData from API response.
+    total_video_views: Optional[int] = Field(default=0, description="Total number of video views")
+    total_video_impressions: Optional[int] = Field(default=0, description="Total number of video impressions")
+    total_video_view_time: Optional[int] = Field(default=0, description="Total view time in milliseconds")
+    total_video_complete_views: Optional[int] = Field(default=0, description="Number of complete views")
+    total_video_30s_views: Optional[int] = Field(default=0, description="Number of 30-second views")
 
-        Args:
-            data: Dictionary containing video data from Facebook API
-        """
-        self.id = data.get("id", "")
-        self.title = data.get("title", "")
-        self.description = data.get("description", "")
+    # Allow additional fields for other insight metrics
+    class Config:
+        extra = "allow"
 
-        # Process timestamps
-        self.created_time = self._parse_timestamp(data.get("created_time", ""))
-        self.updated_time = self._parse_timestamp(data.get("updated_time", ""))
 
-        # Metrics
-        self.length = data.get("length", 0)
-        self.views = data.get("views", 0)
-        self.comments_count = data.get("comments_count", 0)
-        self.likes_count = data.get("likes_count", 0)
-        self.shares_count = data.get("shares_count", 0)
-        self.saves_count = data.get("saves_count", 0)
-        self.reach = data.get("reach", 0)
+class VideoData(BaseModel):
+    """Pydantic model for Facebook video data."""
 
-        # Watch time metrics
-        self.avg_watch_time = data.get("avg_watch_time", 0)
-        self.total_watch_time = data.get("total_watch_time", 0)
+    id: str = Field(..., description="Facebook video ID")
+    title: Optional[str] = Field(default="", description="Video title")
+    description: Optional[str] = Field(default="", description="Video description")
+    created_time: Optional[datetime] = Field(default=None, description="Creation timestamp")
+    updated_time: Optional[datetime] = Field(default=None, description="Last update timestamp")
+    length: Optional[int] = Field(default=0, description="Video duration in seconds")
+    views: int = Field(default=0, description="Number of video views")
+    comments_count: int = Field(default=0, description="Number of comments")
+    likes_count: int = Field(default=0, description="Number of likes")
+    shares_count: int = Field(default=0, description="Number of shares")
+    saves_count: Optional[int] = Field(default=0, description="Number of saves")
+    reach: Optional[int] = Field(default=0, description="Video reach count")
+    avg_watch_time: Optional[float] = Field(default=0, description="Average watch time in seconds")
+    total_watch_time: Optional[float] = Field(default=0, description="Total watch time in seconds")
+    views_from_followers: Optional[int] = Field(default=0, description="Views from page followers")
+    views_from_non_followers: Optional[int] = Field(default=0, description="Views from non-followers")
+    follower_percentage: Optional[float] = Field(default=0, description="Percentage of views from followers")
+    link_clicks: Optional[int] = Field(default=0, description="Number of link clicks")
+    permalink_url: Optional[str] = Field(default="", description="Permanent URL to the video")
+    insights: Optional[Dict[str, Any]] = Field(default_factory=dict, description="Raw insights data")
 
-        # Audience breakdown
-        self.views_from_followers = data.get("views_from_followers", 0)
-        self.views_from_non_followers = data.get("views_from_non_followers", 0)
-        self.follower_percentage = 0
-        if self.views and self.views_from_followers:
-            self.follower_percentage = (self.views_from_followers / self.views) * 100
+    # Store raw data (excluded from serialization)
+    _raw_data: Dict[str, Any] = Field(default_factory=dict, exclude=True)
 
-        # Link clicks
-        self.link_clicks = data.get("link_clicks", 0)
+    @validator("created_time", "updated_time", pre=True)
+    def parse_datetime(cls, value):
+        """Parse datetime from string if needed."""
+        if isinstance(value, str):
+            try:
+                return pd.to_datetime(value)
+            except ValueError:
+                return None
+        return value
 
-        # URL
-        self.permalink_url = data.get("permalink_url", "")
+    @root_validator(pre=True)
+    def extract_counts(cls, values):
+        """Extract counts from nested API response structures."""
+        if "comments" in values and isinstance(values["comments"], dict):
+            summary = values.get("comments", {}).get("summary", {})
+            values["comments_count"] = summary.get("total_count", 0)
 
-        # Insights
-        self.insights = {}
-        for key, value in data.items():
-            if key.startswith("total_"):
-                self.insights[key] = value
+        if "likes" in values and isinstance(values["likes"], dict):
+            summary = values.get("likes", {}).get("summary", {})
+            values["likes_count"] = summary.get("total_count", 0)
 
-        # Store the original data
-        self._raw_data = data
+        if "shares" in values and isinstance(values["shares"], dict):
+            values["shares_count"] = values.get("shares", {}).get("count", 0)
 
-    def _parse_timestamp(self, timestamp: str) -> Optional[datetime]:
-        """
-        Parse ISO timestamp string into datetime object.
+        if "saved" in values and isinstance(values["saved"], dict):
+            summary = values.get("saved", {}).get("summary", {})
+            values["saves_count"] = summary.get("total_count", 0)
 
-        Args:
-            timestamp: ISO format timestamp string
+        # Process insights if present
+        if "video_insights" in values and isinstance(values["video_insights"], dict):
+            insights_data = values.get("video_insights", {}).get("data", [])
 
-        Returns:
-            datetime: Parsed datetime or None if parsing fails
-        """
-        if not timestamp:
-            return None
+            for insight in insights_data:
+                name = insight.get("name")
+                values_list = insight.get("values", [])
 
-        try:
-            return pd.to_datetime(timestamp)
-        except ValueError:
-            return None
+                if not values_list:
+                    continue
+
+                value = values_list[0].get("value")
+
+                if name == "total_video_view_time":
+                    # Convert to seconds
+                    values["total_watch_time"] = value / 1000 if isinstance(value, (int, float)) else 0
+                    if values.get("views", 0) > 0:
+                        values["avg_watch_time"] = values["total_watch_time"] / values["views"]
+
+                elif name == "total_video_views_by_follower_status" and isinstance(value, dict):
+                    values["views_from_followers"] = value.get("follower", 0)
+                    values["views_from_non_followers"] = value.get("non_follower", 0)
+
+                # Store raw insight
+                if "insights" not in values:
+                    values["insights"] = {}
+                values["insights"][name] = value
+
+        # Calculate follower percentage
+        if values.get("views", 0) > 0 and values.get("views_from_followers", 0) > 0:
+            values["follower_percentage"] = (values["views_from_followers"] / values["views"]) * 100
+
+        # Store raw data for future reference
+        values["_raw_data"] = {k: v for k, v in values.items()}
+
+        return values
 
     @property
     def created_time_formatted(self) -> str:
@@ -116,6 +152,10 @@ class VideoData:
 
         return "Untitled"
 
+    def get_raw_data(self) -> Dict[str, Any]:
+        """Get the original raw data."""
+        return self._raw_data
+
     def to_dict(self) -> Dict[str, Any]:
         """
         Convert to dictionary for display or export.
@@ -132,85 +172,62 @@ class VideoData:
             "length": self.length,
             "duration": self.duration_formatted,
             "views": self.views,
-            "reach": getattr(self, "reach", 0),
+            "reach": self.reach,
             "comments_count": self.comments_count,
             "likes_count": self.likes_count,
             "shares_count": self.shares_count,
-            "saves_count": getattr(self, "saves_count", 0),
-            "link_clicks": getattr(self, "link_clicks", 0),
+            "saves_count": self.saves_count,
+            "link_clicks": self.link_clicks,
             "permalink_url": self.permalink_url,
-            "avg_watch_time": getattr(self, "avg_watch_time", 0),
-            "total_watch_time": getattr(self, "total_watch_time", 0),
-            "views_from_followers": getattr(self, "views_from_followers", 0),
-            "views_from_non_followers": getattr(self, "views_from_non_followers", 0),
-            "follower_percentage": getattr(self, "follower_percentage", 0),
+            "avg_watch_time": self.avg_watch_time,
+            "total_watch_time": self.total_watch_time,
+            "views_from_followers": self.views_from_followers,
+            "views_from_non_followers": self.views_from_non_followers,
+            "follower_percentage": self.follower_percentage,
         }
 
         # Add insights
-        data.update(self.insights)
+        if self.insights:
+            data.update(self.insights)
 
         return data
 
-    def get_raw_data(self) -> Dict[str, Any]:
-        """
-        Get the original raw data.
-
-        Returns:
-            dict: Original API response data
-        """
-        return self._raw_data
+    class Config:
+        # Allow extra fields in input data
+        extra = "ignore"
 
 
-class VideoDataCollection:
+class VideoDataCollection(BaseModel):
     """Collection of VideoData objects with analysis capabilities."""
 
-    def __init__(self, videos: List[Dict[str, Any]] = None):
-        """
-        Initialize VideoDataCollection.
+    videos: List[VideoData] = Field(default_factory=list, description="List of videos")
 
-        Args:
-            videos: List of video data dictionaries from Facebook API
-        """
-        self.videos = []
+    @classmethod
+    def from_api_response(cls, videos_data: List[Dict[str, Any]]) -> "VideoDataCollection":
+        """Create a collection from API response data."""
+        if not videos_data:
+            return cls(videos=[])
 
-        if videos:
-            self.add_videos(videos)
+        video_models = [VideoData.parse_obj(video) for video in videos_data]
+        return cls(videos=video_models)
 
-    def add_videos(self, videos: List[Dict[str, Any]]):
-        """
-        Add videos to the collection.
-
-        Args:
-            videos: List of video data dictionaries from Facebook API
-        """
-        for video_data in videos:
-            self.videos.append(VideoData(video_data))
+    def add_videos(self, videos_data: List[Dict[str, Any]]):
+        """Add videos to the collection."""
+        for video_data in videos_data:
+            self.videos.append(VideoData.parse_obj(video_data))
 
     def clear(self):
         """Clear all videos from the collection."""
         self.videos = []
 
     def get_video(self, index: int) -> Optional[VideoData]:
-        """
-        Get video by index.
-
-        Args:
-            index: Index of the video
-
-        Returns:
-            VideoData: Video data at the specified index or None if index is invalid
-        """
+        """Get video by index."""
         if 0 <= index < len(self.videos):
             return self.videos[index]
         return None
 
     def get_statistics(self) -> Dict[str, Any]:
-        """
-        Calculate collection statistics.
-
-        Returns:
-            dict: Dictionary with statistics
-        """
+        """Calculate collection statistics."""
         total_videos = len(self.videos)
 
         if total_videos == 0:
@@ -228,20 +245,18 @@ class VideoDataCollection:
         total_comments = sum(video.comments_count for video in self.videos)
         total_likes = sum(video.likes_count for video in self.videos)
         total_shares = sum(video.shares_count for video in self.videos)
-        total_saves = sum(getattr(video, "saves_count", 0) for video in self.videos)
+        total_saves = sum(video.saves_count for video in self.videos)
 
         # Watch time metrics
-        total_watch_time = sum(getattr(video, "total_watch_time", 0) for video in self.videos)
-        videos_with_watch_time = sum(
-            1 for video in self.videos if hasattr(video, "total_watch_time") and video.total_watch_time > 0
-        )
+        total_watch_time = sum(video.total_watch_time for video in self.videos)
+        videos_with_watch_time = sum(1 for video in self.videos if video.total_watch_time > 0)
         average_watch_time = total_watch_time / videos_with_watch_time if videos_with_watch_time > 0 else 0
 
         # Engagement includes reactions, comments, shares, and saves
         total_engagement = total_comments + total_likes + total_shares + total_saves
 
         # Reach
-        total_reach = sum(getattr(video, "reach", 0) for video in self.videos)
+        total_reach = sum(video.reach for video in self.videos)
 
         return {
             "total_videos": total_videos,
@@ -259,32 +274,19 @@ class VideoDataCollection:
             "average_watch_time": average_watch_time,
         }
 
-    def to_dataframe(self) -> pd.DataFrame:
-        """
-        Convert collection to pandas DataFrame.
+    def to_dataframe(self) -> "pd.DataFrame":
+        """Convert collection to pandas DataFrame."""
+        import pandas as pd
 
-        Returns:
-            DataFrame: DataFrame with video data
-        """
-        data = [video.to_dict() for video in self.videos]
+        data = [video.dict() for video in self.videos]
         return pd.DataFrame(data)
 
     def to_list(self) -> List[Dict[str, Any]]:
-        """
-        Convert collection to list of dictionaries.
-
-        Returns:
-            list: List of video data dictionaries
-        """
-        return [video.to_dict() for video in self.videos]
+        """Convert collection to list of dictionaries."""
+        return [video.dict() for video in self.videos]
 
     def get_raw_data(self) -> List[Dict[str, Any]]:
-        """
-        Get raw API data for all videos.
-
-        Returns:
-            list: List of original API response dictionaries
-        """
+        """Get raw API data for all videos."""
         return [video.get_raw_data() for video in self.videos]
 
     def __len__(self) -> int:

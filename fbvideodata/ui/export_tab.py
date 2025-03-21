@@ -10,7 +10,7 @@ from datetime import datetime
 
 from ..utils import get_logger
 from ..api.facebook_api import FacebookAPI
-from ..api.google_api import export_to_google_sheet
+from ..api.google_api import export_to_google_sheet, GoogleSheetsConfig
 from .dialogs import GoogleExportSuccessDialog, show_file_export_success
 
 
@@ -180,6 +180,8 @@ class ExportTab:
 
             # Initialize API and export
             fb_api = FacebookAPI(access_token)
+
+            # Get raw data from the Pydantic model collection
             raw_data = video_collection.get_raw_data()
             result = fb_api.export_to_csv(raw_data, filepath)
 
@@ -208,6 +210,19 @@ class ExportTab:
         # Set environment variable
         os.environ["GOOGLE_CREDENTIALS_PATH"] = credentials_path
 
+        # Validate Google Sheets configuration using Pydantic
+        try:
+            # This will validate the credentials_path exists
+            # We're using this primarily for validation, not storing the result
+            GoogleSheetsConfig(
+                credentials_path=credentials_path,
+                spreadsheet_name=spreadsheet_name,
+                worksheet_name=worksheet_name,
+            )
+        except ValueError as e:
+            messagebox.showerror("Error", f"Invalid Google Sheets configuration: {e}")
+            return
+
         self.status_var.set("Exporting to Google Sheets...")
         self.logger.log(f"Exporting data to Google Sheets: {spreadsheet_name}/{worksheet_name}")
 
@@ -220,7 +235,7 @@ class ExportTab:
     def _export_to_google_thread(self, video_collection, spreadsheet_name, worksheet_name, credentials_path):
         """Thread for Google Sheets export."""
         try:
-            # Get raw data
+            # Get raw data from the Pydantic model collection
             raw_data = video_collection.get_raw_data()
 
             # Export
@@ -251,12 +266,6 @@ class ExportTab:
 
     def update_config(self):
         """Update configuration from UI values."""
+        # Update Pydantic config through property accessors
         self.config.export_format = self.export_format_var.get()
-        self.config.spreadsheet_name = self.spreadsheet_name_var.get()
-        self.config.worksheet_name = self.worksheet_name_var.get()
-        self.config.output_path = self.output_path_var.get()
-
-    def _on_focus_out(self, event=None):
-        """Handle focus out event to update config."""
-        self.update_config()
-        self.config.save_settings()
+        self.config.spreadsheet_name = self.spreadsheet

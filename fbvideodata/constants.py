@@ -19,7 +19,8 @@ DEFAULT_OUTPUT_PATH = "~/Documents"
 SETTINGS_FILENAME = ".fbvdata_settings.json"
 
 # Facebook API settings
-FB_API_BASE_URL = "https://graph.facebook.com/v16.0/"
+FB_API_VERSION = "v18.0"  # Configurable API version
+FB_API_BASE_URL = f"https://graph.facebook.com/{FB_API_VERSION}/"
 FB_REQUIRED_PERMISSIONS = ["pages_read_engagement", "pages_show_list", "pages_read_user_content"]
 
 # Help text

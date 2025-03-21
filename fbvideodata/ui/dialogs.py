@@ -19,7 +19,7 @@ class VideoDetailsDialog:
 
         Args:
             parent: Parent window
-            video_data: VideoData object or dictionary with video data
+            video_data: VideoData Pydantic model or dictionary with video data
         """
         self.parent = parent
         self.video_data = video_data
@@ -119,6 +119,10 @@ class VideoDetailsDialog:
         else:
             raw_data = video
 
+        # For Pydantic models, convert to dict for JSON serialization if needed
+        if hasattr(raw_data, "dict"):
+            raw_data = raw_data.dict(exclude={"_raw_data"})
+
         json_text = json.dumps(raw_data, indent=2)
 
         json_display = scrolledtext.ScrolledText(raw_tab, wrap=tk.WORD, height=15, font=("Courier", 10))
@@ -165,7 +169,13 @@ class VideoDetailsDialog:
 
     def _add_insights_tab(self, notebook, video):
         """Add insights tab if insights data is available."""
-        insights_keys = [key for key in video.keys() if key.startswith("total_")]
+        # Check for insights in the Pydantic model or dict
+        insights_keys = []
+        if "insights" in video and isinstance(video["insights"], dict):
+            insights_keys = list(video["insights"].keys())
+        else:
+            insights_keys = [key for key in video.keys() if key.startswith("total_")]
+
         if not insights_keys:
             return
 
@@ -176,7 +186,14 @@ class VideoDetailsDialog:
         for key in sorted(insights_keys):
             # Format key for display
             display_key = key.replace("total_", "").replace("_", " ").title()
-            insights_text += f"{display_key}: {video.get(key, 0):,}\n"
+
+            # Get value from insights dict or directly from video dict
+            if "insights" in video and isinstance(video["insights"], dict) and key in video["insights"]:
+                value = video["insights"][key]
+            else:
+                value = video.get(key, 0)
+
+            insights_text += f"{display_key}: {value:,}\n"
 
         insights_display = scrolledtext.ScrolledText(insights_tab, wrap=tk.WORD, height=15)
         insights_display.pack(fill=tk.BOTH, expand=True)

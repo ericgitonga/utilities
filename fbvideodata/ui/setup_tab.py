@@ -1,5 +1,5 @@
 """
-Setup tab UI for the Facebook Video Data Tool application.
+Setup tab UI for the Facebook Video Data Tool application with improved API testing.
 """
 
 import os
@@ -127,8 +127,31 @@ class SetupTab:
             row=1, column=1, sticky=tk.W, pady=5
         )
 
-        # Test button
-        ttk.Button(self.tab, text="Test Connection", command=self._test_connection).pack(pady=10)
+        # Test connection buttons
+        button_frame = ttk.Frame(self.tab)
+        button_frame.pack(pady=10)
+
+        ttk.Button(button_frame, text="Test Connection", command=self._test_connection).pack(side=tk.LEFT, padx=5)
+        ttk.Button(button_frame, text="Test API Versions", command=self._test_api_versions).pack(side=tk.LEFT, padx=5)
+
+        # API version display
+        version_frame = ttk.Frame(self.tab)
+        version_frame.pack(pady=5)
+
+        ttk.Label(version_frame, text="Current API Version:").pack(side=tk.LEFT)
+        self.api_version_var = tk.StringVar(value=self._get_api_version())
+        ttk.Label(version_frame, textvariable=self.api_version_var).pack(side=tk.LEFT, padx=5)
+
+    def _get_api_version(self):
+        """Extract API version from the base URL."""
+        from ..constants import FB_API_BASE_URL
+
+        if "v" in FB_API_BASE_URL:
+            parts = FB_API_BASE_URL.split("/")
+            for part in parts:
+                if part.startswith("v"):
+                    return part
+        return "Unknown"
 
     def _toggle_token_visibility(self):
         """Toggle visibility of the token entry field."""
@@ -208,33 +231,116 @@ class SetupTab:
         # Run in a thread to avoid freezing UI
         threading.Thread(target=self._test_connection_thread, args=(page_id, access_token)).start()
 
+    def _test_api_versions(self):
+        """Test multiple Facebook API versions to find a working one."""
+        page_id = self.page_id_var.get().strip()
+
+        if not page_id:
+            messagebox.showerror("Error", "Please enter a Page ID")
+            return
+
+        # Get access token
+        access_token = self._get_access_token()
+        if not access_token:
+            return
+
+        self.status_var.set("Testing API versions...")
+        self.logger.log("Testing multiple Facebook API versions...")
+
+        # Run in a thread to avoid freezing UI
+        threading.Thread(target=self._test_api_versions_thread, args=(page_id, access_token)).start()
+
     def _test_connection_thread(self, page_id, access_token):
         """Thread for testing API connection."""
         try:
-            # Initialize API
-            fb_api = FacebookAPI(access_token)
+            # Initialize API with parent and status_var for updates
+            fb_api = FacebookAPI(access_token, parent=self.parent, status_var=self.status_var)
 
             # Try to get a single video
-            result = fb_api.get_page_videos(page_id, limit=1)
+            response = fb_api.get_page_videos(page_id, limit=1)
 
-            if result and "data" in result:
-                if len(result["data"]) > 0:
-                    self.logger.log("Connection successful! Found videos on the page.")
-                    tk.messagebox.showinfo("Success", "Connected successfully to Facebook API!")
-                else:
-                    self.logger.log("Connection successful, but no videos found on this page.")
-                    tk.messagebox.showinfo("Success", "Connected to Facebook API, but no videos found on this page.")
+            # Check if response contains data
+            if hasattr(response, "data") and len(response.data) > 0:
+                self.logger.log("Connection successful! Found videos on the page.")
+                messagebox.showinfo("Success", "Connected successfully to Facebook API!")
+            elif hasattr(response, "data"):
+                self.logger.log("Connection successful, but no videos found on this page.")
+                messagebox.showinfo("Success", "Connected to Facebook API, but no videos found on this page.")
             else:
-                self.logger.log(f"Connection error or invalid response: {result}")
-                tk.messagebox.showerror("Error", "Could not retrieve videos. Check your Page ID and Access Token.")
+                self.logger.log(f"Connection error or invalid response: {response}")
+                messagebox.showerror("Error", "Could not retrieve videos. Check your Page ID and Access Token.")
 
         except Exception as e:
             self.logger.log(f"Error testing connection: {e}")
             error_message = str(e)
-            tk.messagebox.showerror("Error", f"Connection failed: {error_message}")
+            messagebox.showerror("Error", f"Connection failed: {error_message}")
 
         finally:
             self.status_var.set("Ready")
+
+    def _test_api_versions_thread(self, page_id, access_token):
+        """Thread for testing multiple API versions."""
+        try:
+            # Initialize API
+            fb_api = FacebookAPI(access_token, parent=self.parent, status_var=self.status_var)
+
+            # Test API versions
+            success, version, message = fb_api.test_api_versions(page_id)
+
+            if success:
+                self.logger.log(f"API version test successful: {message}")
+
+                # Update version display
+                self.api_version_var.set(version)
+
+                # Update constants file if available
+                self._update_api_version_in_constants(version)
+
+                messagebox.showinfo("Success", message)
+            else:
+                self.logger.log(f"API version test failed: {message}")
+                messagebox.showerror("Error", message)
+
+        except Exception as e:
+            self.logger.log(f"Error testing API versions: {e}")
+            messagebox.showerror("Error", f"Error testing API versions: {e}")
+
+        finally:
+            self.status_var.set("Ready")
+
+    def _update_api_version_in_constants(self, version):
+        """Update API version in constants file if possible."""
+        try:
+            constants_path = None
+
+            # Try to locate the constants.py file
+            import inspect
+            import os
+            from .. import constants
+
+            constants_path = inspect.getfile(constants)
+            self.logger.log(f"Found constants file at: {constants_path}")
+
+            if constants_path and os.path.isfile(constants_path):
+                with open(constants_path, "r") as f:
+                    content = f.read()
+
+                # Replace API base URL
+                import re
+
+                new_content = re.sub(
+                    r'FB_API_BASE_URL\s*=\s*"[^"]*"',
+                    f'FB_API_BASE_URL = "https://graph.facebook.com/{version}/"',
+                    content,
+                )
+
+                if new_content != content:
+                    with open(constants_path, "w") as f:
+                        f.write(new_content)
+                    self.logger.log(f"Updated API version in constants.py to {version}")
+        except Exception as e:
+            self.logger.log(f"Could not update API version in constants: {e}")
+            # Non-critical error, so don't show to user
 
     def _get_access_token(self):
         """
@@ -269,11 +375,19 @@ class SetupTab:
 
     def update_config(self):
         """Update configuration from UI values."""
+        # Update the Pydantic config object through the property accessors
         self.config.page_id = self.page_id_var.get()
         self.config.token_from_file = self.token_from_file_var.get()
         self.config.token_path = self.token_path_var.get()
         self.config.access_token = self.access_token_var.get()
-        self.config.max_videos = self.max_videos_var.get()
+
+        # Safe conversion for max_videos with validation through the Pydantic model
+        try:
+            self.config.max_videos = int(self.max_videos_var.get())
+        except (ValueError, TypeError):
+            # If conversion fails, Pydantic will use the default value
+            pass
+
         self.config.credentials_path = self.credentials_path_var.get()
 
         if self.config.credentials_path and os.path.isfile(self.config.credentials_path):

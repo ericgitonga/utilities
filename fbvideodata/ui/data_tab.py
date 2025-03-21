@@ -31,8 +31,8 @@ class DataTab:
         self.status_var = status_var
         self.logger = get_logger()
 
-        # Data storage
-        self.video_collection = VideoDataCollection()
+        # Data storage - initialize with empty Pydantic model
+        self.video_collection = VideoDataCollection(videos=[])
 
         # Create tab frame
         self.tab = ttk.Frame(notebook)
@@ -149,8 +149,8 @@ class DataTab:
             # Get video data
             video_data = facebook_api.get_all_facebook_video_data(page_id, access_token, max_videos)
 
-            # Add to collection
-            self.video_collection = VideoDataCollection(video_data)
+            # Updated: Use VideoDataCollection.from_api_response for Pydantic validation
+            self.video_collection = VideoDataCollection.from_api_response(video_data)
 
             # Update UI with results
             self.parent.after(0, self._update_data_display)
@@ -181,9 +181,7 @@ class DataTab:
             created_time = video.created_time_formatted
 
             # Format watch time to 1 decimal place if available
-            avg_watch = (
-                f"{video.avg_watch_time:.1f}s" if hasattr(video, "avg_watch_time") and video.avg_watch_time else "N/A"
-            )
+            avg_watch = f"{video.avg_watch_time:.1f}s" if video.avg_watch_time else "N/A"
 
             # Insert data into tree
             self.tree.insert(
@@ -194,7 +192,7 @@ class DataTab:
                     title,
                     created_time,
                     f"{video.views:,}",
-                    f"{video.reach:,}" if hasattr(video, "reach") and video.reach else "N/A",
+                    f"{video.reach:,}" if video.reach else "N/A",
                     f"{video.comments_count:,}",
                     f"{video.likes_count:,}",
                     f"{video.shares_count:,}",
@@ -240,7 +238,7 @@ class DataTab:
         for item in self.tree.get_children():
             self.tree.delete(item)
 
-        # Clear data list
+        # Clear data using Pydantic model's clear method
         self.video_collection.clear()
 
         # Update stats
