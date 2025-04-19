@@ -4,11 +4,12 @@ A Python utility that automatically organizes files by their file type.
 
 ## Overview
 
-File Organizer is a simple yet powerful Python script that helps you clean up directories with mixed file types. It scans a specified directory, identifies each file's extension, creates subdirectories for each file type, and moves files to their corresponding type directories.
+File Organizer is a simple yet powerful Python script that helps you clean up directories with mixed file types. It scans a specified directory, identifies each file's extension, creates a "processed" directory with subdirectories for each file type, and moves files to their corresponding type directories.
 
 ## Features
 
 - **Automatic Organization**: Organizes files based on their extensions
+- **Centralized Processed Folder**: Places all organized files in a "processed" directory
 - **Custom Directory Support**: Specify any directory to organize
 - **Duplicate Handling**: Automatically adds suffixes to prevent overwriting existing files
 - **Progress Tracking**: Shows real-time feedback on files being moved
@@ -16,6 +17,7 @@ File Organizer is a simple yet powerful Python script that helps you clean up di
 - **User Confirmation**: Asks for confirmation before proceeding with file operations
 - **No-Extension Handling**: Places files without extensions in a "no_extension" directory
 - **Self-Preservation**: Skips the script itself to avoid disrupting execution
+- **Circular Processing Prevention**: Avoids re-processing files in the "processed" directory
 
 ## Installation
 
@@ -50,9 +52,9 @@ python file_organizer.py /path/to/directory
 $ python file_organizer.py ~/Downloads
 This will organize all files in '/home/user/Downloads' into subdirectories by file type.
 Continue? (y/n): y
-Moved: document.pdf -> pdf/document.pdf
-Moved: image.jpg -> jpg/image.jpg
-Moved: presentation.pptx -> pptx/presentation.pptx
+Moved: document.pdf -> processed/pdf/document.pdf
+Moved: image.jpg -> processed/jpg/image.jpg
+Moved: presentation.pptx -> processed/pptx/presentation.pptx
 ...
 
 Organization complete!

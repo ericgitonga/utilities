@@ -6,7 +6,8 @@ import sys
 def organize_files_by_type(source_dir):
     """
     Organize files in the source directory by their file type.
-    Each file will be moved to a subdirectory named after its extension.
+    Each file will be moved to a subdirectory named after its extension
+    within a 'processed' directory.
 
     Args:
         source_dir (str): Path to the source directory containing files to organize
@@ -17,11 +18,19 @@ def organize_files_by_type(source_dir):
         print(f"Error: The directory '{source_dir}' does not exist.")
         return
 
+    # Create the main processed directory
+    processed_dir = os.path.join(source_dir, "processed")
+    os.makedirs(processed_dir, exist_ok=True)
+
     # Dictionary to store file counts by extension
     file_counts = {}
 
     # Walk through the source directory
     for root, _, files in os.walk(source_dir):
+        # Skip the processed directory to avoid circular processing
+        if os.path.normpath(root).startswith(os.path.normpath(processed_dir)):
+            continue
+
         for filename in files:
             # Skip the script itself if it's in the directory
             if filename == os.path.basename(__file__):
@@ -34,7 +43,7 @@ def organize_files_by_type(source_dir):
             extension = extension[1:].lower() if extension else "no_extension"
 
             # Create a directory for this extension if it doesn't exist
-            extension_dir = os.path.join(source_dir, extension)
+            extension_dir = os.path.join(processed_dir, extension)
             os.makedirs(extension_dir, exist_ok=True)
 
             # Destination path
@@ -59,7 +68,7 @@ def organize_files_by_type(source_dir):
                 else:
                     file_counts[extension] = 1
 
-                print(f"Moved: {filename} -> {extension}/{os.path.basename(dest_path)}")
+                print(f"Moved: {filename} -> processed/{extension}/{os.path.basename(dest_path)}")
             except Exception as e:
                 print(f"Error moving {filename}: {e}")
 
