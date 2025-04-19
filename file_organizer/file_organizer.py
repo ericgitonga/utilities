@@ -3,10 +3,10 @@ import shutil
 import argparse
 
 
-def organize_files_by_type(source_dir, recursive=True):
+def organize_files_by_category(source_dir, recursive=True):
     """
-    Organize files in the source directory by their file type.
-    Each file will be moved to a subdirectory named after its extension
+    Organize files in the source directory by their file category.
+    Each file will be moved to a subdirectory named after its category
     within a 'processed' directory.
 
     Args:
@@ -23,7 +23,7 @@ def organize_files_by_type(source_dir, recursive=True):
     processed_dir = os.path.join(source_dir, "processed")
     os.makedirs(processed_dir, exist_ok=True)
 
-    # Dictionary to store file counts by extension
+    # Dictionary to store file counts by category
     file_counts = {}
 
     # Process files based on recursion option
@@ -43,19 +43,63 @@ def organize_files_by_type(source_dir, recursive=True):
     # Print summary
     print("\nOrganization complete!")
     print("Summary of files organized:")
-    for ext, count in sorted(file_counts.items()):
-        print(f"  {ext}: {count} file(s)")
+    for category, count in sorted(file_counts.items()):
+        print(f"  {category}: {count} file(s)")
+
+
+def get_file_category(extension):
+    """
+    Determine the category of a file based on its extension.
+
+    Args:
+        extension (str): The file extension without the dot
+
+    Returns:
+        str: The category name to use as a directory name
+    """
+    # Define extension categories
+    extension_categories = {
+        "Documents": ["pdf", "doc", "docx", "txt", "rtf", "odt", "md", "csv", "xls", "xlsx", "ppt", "pptx"],
+        "Images": [
+            "jpg",
+            "jpeg",
+            "png",
+            "gif",
+            "bmp",
+            "tiff",
+            "tif",
+            "webp",
+            "svg",
+            "ico",
+            "heic",
+            "psd",
+            "dng",
+            "nef",
+        ],
+        "Audio": ["mp3", "wav", "ogg", "flac", "aac", "m4a"],
+        "Video": ["mp4", "avi", "mkv", "mov", "wmv", "flv", "webm", "m4v"],
+        "Archives": ["zip", "rar", "tar", "gz", "7z"],
+        "Code": ["py", "js", "html", "css", "java", "c", "cpp", "go", "rs", "php", "rb", "ipynb", "jar"],
+    }
+
+    # Find which category the extension belongs to
+    for category, extensions in extension_categories.items():
+        if extension in extensions:
+            return category
+
+    # If no category matches, return "Misc"
+    return "Misc"
 
 
 def process_files_in_directory(directory, files, processed_dir, file_counts):
     """
-    Process files in a given directory and move them to the appropriate location.
+    Process files in a given directory and move them to the appropriate category location.
 
     Args:
         directory (str): Directory containing the files to process
         files (list): List of filenames to process
         processed_dir (str): Path to the processed directory
-        file_counts (dict): Dictionary to track file counts by extension
+        file_counts (dict): Dictionary to track file counts by category
     """
     for filename in files:
         # Skip the script itself if it's in the directory
@@ -68,85 +112,18 @@ def process_files_in_directory(directory, files, processed_dir, file_counts):
         _, extension = os.path.splitext(filename)
         extension = extension[1:].lower() if extension else "no_extension"
 
-        # Define known extensions (you can expand this list)
-        known_extensions = [
-            # Documents
-            "pdf",
-            "doc",
-            "docx",
-            "txt",
-            "rtf",
-            "odt",
-            "md",
-            "csv",
-            "xls",
-            "xlsx",
-            "ppt",
-            "pptx",
-            # Images
-            "jpg",
-            "jpeg",
-            "png",
-            "gif",
-            "bmp",
-            "tiff",
-            "webp",
-            "svg",
-            "ico",
-            "heic",
-            "psd",
-            "dng",
-            "nef",
-            # Audio
-            "mp3",
-            "wav",
-            "ogg",
-            "flac",
-            "aac",
-            "m4a",
-            # Video
-            "mp4",
-            "avi",
-            "mkv",
-            "mov",
-            "wmv",
-            "flv",
-            "webm",
-            # Archives
-            "zip",
-            "rar",
-            "tar",
-            "gz",
-            "7z",
-            # Code
-            "py",
-            "js",
-            "html",
-            "css",
-            "java",
-            "c",
-            "cpp",
-            "go",
-            "rs",
-            "php",
-            "rb",
-            "ipynb",
-            # Special
-            "no_extension",
-        ]
-
-        # Determine if the extension is known or should go to misc
-        if extension in known_extensions:
-            target_dir = extension
+        # Get the category for this file
+        if extension == "no_extension":
+            category = "Misc"
         else:
-            target_dir = "misc"
+            category = get_file_category(extension)
 
-        # Create a directory for this file type if it doesn't exist
-        extension_dir = os.path.join(processed_dir, target_dir)
-        os.makedirs(extension_dir, exist_ok=True)
+        # Create a directory for this file category if it doesn't exist
+        category_dir = os.path.join(processed_dir, category)
+        os.makedirs(category_dir, exist_ok=True)
 
         # Destination path
-        dest_path = os.path.join(extension_dir, filename)
+        dest_path = os.path.join(category_dir, filename)
 
         # If the file already exists in the destination, add a suffix
         if os.path.exists(dest_path):
@@ -154,7 +131,7 @@ def process_files_in_directory(directory, files, processed_dir, file_counts):
             counter = 1
             while os.path.exists(dest_path):
                 new_filename = f"{base_name}_{counter}{ext}"
-                dest_path = os.path.join(extension_dir, new_filename)
+                dest_path = os.path.join(category_dir, new_filename)
                 counter += 1
 
         # Move the file
@@ -162,19 +139,19 @@ def process_files_in_directory(directory, files, processed_dir, file_counts):
             shutil.move(file_path, dest_path)
 
             # Update file counts
-            if target_dir in file_counts:
-                file_counts[target_dir] += 1
+            if category in file_counts:
+                file_counts[category] += 1
             else:
-                file_counts[target_dir] = 1
+                file_counts[category] = 1
 
-            print(f"Moved: {filename} -> processed/{target_dir}/{os.path.basename(dest_path)}")
+            print(f"Moved: {filename} -> processed/{category}/{os.path.basename(dest_path)}")
         except Exception as e:
             print(f"Error moving {filename}: {e}")
 
 
 if __name__ == "__main__":
     # Create argument parser
-    parser = argparse.ArgumentParser(description="Organize files by their file type into a 'processed' directory.")
+    parser = argparse.ArgumentParser(description="Organize files by their category into a 'processed' directory.")
     parser.add_argument(
         "directory", nargs="?", default=os.getcwd(), help="The directory to organize (default: current directory)"
     )
@@ -188,7 +165,7 @@ if __name__ == "__main__":
 
     # Display information about the operation
     recursive_str = "recursively " if args.recursive else ""
-    print(f"This will organize all files {recursive_str}in '{args.directory}' into subdirectories by file type.")
+    print(f"This will organize all files {recursive_str}in '{args.directory}' into category subdirectories.")
 
     # Confirm with user unless --yes flag is used
     if args.yes:
@@ -197,6 +174,6 @@ if __name__ == "__main__":
         confirmation = input("Continue? (y/n): ")
 
     if confirmation.lower() in ["y", "yes"]:
-        organize_files_by_type(args.directory, args.recursive)
+        organize_files_by_category(args.directory, args.recursive)
     else:
         print("Operation cancelled.")
