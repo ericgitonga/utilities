@@ -9,6 +9,7 @@ File Organizer is a simple yet powerful Python script that helps you clean up di
 ## Features
 
 - **Automatic Organization**: Organizes files based on their extensions
+- **Recursive Option**: Choose whether to process subdirectories or just the top-level directory
 - **Centralized Processed Folder**: Places all organized files in a "processed" directory
 - **Custom Directory Support**: Specify any directory to organize
 - **Duplicate Handling**: Automatically adds suffixes to prevent overwriting existing files
@@ -19,6 +20,7 @@ File Organizer is a simple yet powerful Python script that helps you clean up di
 - **Unknown Extension Handling**: Places files with uncommon extensions in a "misc" directory
 - **Self-Preservation**: Skips the script itself to avoid disrupting execution
 - **Circular Processing Prevention**: Avoids re-processing files in the "processed" directory
+- **Command-Line Arguments**: Supports various options through command-line flags
 
 ## Installation
 
@@ -33,7 +35,7 @@ No installation required! Simply download the `file_organizer.py` script to your
 
 ### Basic Usage
 
-To organize files in your current directory:
+To organize files in your current directory (non-recursive, only processes files in the current directory):
 
 ```bash
 python file_organizer.py
@@ -41,10 +43,42 @@ python file_organizer.py
 
 ### Specifying a Directory
 
-To organize files in a specific directory:
+To organize files in a specific directory (non-recursive):
 
 ```bash
 python file_organizer.py /path/to/directory
+```
+
+### Recursive Processing
+
+To process files in a directory and all its subdirectories:
+
+```bash
+python file_organizer.py /path/to/directory --recursive
+```
+or the shorter form:
+```bash
+python file_organizer.py /path/to/directory -r
+```
+
+### Skip Confirmation
+
+To skip the confirmation prompt and proceed immediately:
+
+```bash
+python file_organizer.py --yes
+```
+or the shorter form:
+```bash
+python file_organizer.py -y
+```
+
+### Combining Options
+
+You can combine options as needed:
+
+```bash
+python file_organizer.py /path/to/directory -r -y
 ```
 
 ### Example
