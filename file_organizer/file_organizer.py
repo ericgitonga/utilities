@@ -42,8 +42,81 @@ def organize_files_by_type(source_dir):
             _, extension = os.path.splitext(filename)
             extension = extension[1:].lower() if extension else "no_extension"
 
-            # Create a directory for this extension if it doesn't exist
-            extension_dir = os.path.join(processed_dir, extension)
+            # Define known extensions (you can expand this list)
+            known_extensions = [
+                # Documents
+                "pdf",
+                "doc",
+                "docx",
+                "txt",
+                "rtf",
+                "odt",
+                "md",
+                "csv",
+                "xls",
+                "xlsx",
+                "ppt",
+                "pptx",
+                # Images
+                "jpg",
+                "jpeg",
+                "png",
+                "gif",
+                "bmp",
+                "tiff",
+                "webp",
+                "svg",
+                "ico",
+                "heic",
+                "psd",
+                "dng",
+                "nef",
+                # Audio
+                "mp3",
+                "wav",
+                "ogg",
+                "flac",
+                "aac",
+                "m4a",
+                # Video
+                "mp4",
+                "avi",
+                "mkv",
+                "mov",
+                "wmv",
+                "flv",
+                "webm",
+                # Archives
+                "zip",
+                "rar",
+                "tar",
+                "gz",
+                "7z",
+                # Code
+                "py",
+                "js",
+                "html",
+                "css",
+                "java",
+                "c",
+                "cpp",
+                "go",
+                "rs",
+                "php",
+                "rb",
+                "ipynb",
+                # Special
+                "no_extension",
+            ]
+
+            # Determine if the extension is known or should go to misc
+            if extension in known_extensions:
+                target_dir = extension
+            else:
+                target_dir = "misc"
+
+            # Create a directory for this file type if it doesn't exist
+            extension_dir = os.path.join(processed_dir, target_dir)
             os.makedirs(extension_dir, exist_ok=True)
 
             # Destination path
@@ -68,7 +141,7 @@ def organize_files_by_type(source_dir):
                 else:
                     file_counts[extension] = 1
 
-                print(f"Moved: {filename} -> processed/{extension}/{os.path.basename(dest_path)}")
+                print(f"Moved: {filename} -> processed/{target_dir}/{os.path.basename(dest_path)}")
             except Exception as e:
                 print(f"Error moving {filename}: {e}")
 

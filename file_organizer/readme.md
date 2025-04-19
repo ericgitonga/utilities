@@ -16,6 +16,7 @@ File Organizer is a simple yet powerful Python script that helps you clean up di
 - **Summary Report**: Provides a count of files organized by extension
 - **User Confirmation**: Asks for confirmation before proceeding with file operations
 - **No-Extension Handling**: Places files without extensions in a "no_extension" directory
+- **Unknown Extension Handling**: Places files with uncommon extensions in a "misc" directory
 - **Self-Preservation**: Skips the script itself to avoid disrupting execution
 - **Circular Processing Prevention**: Avoids re-processing files in the "processed" directory
 
