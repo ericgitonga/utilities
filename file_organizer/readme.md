@@ -6,6 +6,22 @@ A Python utility that automatically organizes files by their category with enhan
 
 File Organizer is a robust Python script that helps you clean up directories with mixed file types. It scans a specified directory, identifies each file's extension, creates a "processed" directory with subdirectories for each file category (Documents, Images, Audio, etc.), and moves files to their corresponding category directories.
 
+## Project Structure
+
+```
+file_organizer/
+├── file_organizer.py          # Main entry point with main() function
+├── utils/                     # Utils package
+│   ├── __init__.py            # Package initialization
+│   ├── file_operations.py     # File operations like move, copy, verify integrity
+│   ├── path_utils.py          # Path-related utilities - safe path, secure filename
+│   ├── categories.py          # Category-related functions and default definitions
+│   ├── permissions.py         # Permission checking functions
+│   ├── backup.py              # Backup creation functionality
+│   └── logging_config.py      # Logging configuration
+└── logs/                      # Log directory (created at runtime with timestamped logs)
+```
+
 ## Features
 
 ### Security Features
@@ -32,6 +48,7 @@ File Organizer is a robust Python script that helps you clean up directories wit
 - **Centralized Processed Folder**: Places all organized files in a "processed" directory
 - **Duplicate Handling**: Prevents overwriting existing files with secure naming
 - **Summary Report**: Provides a count of files organized by category and details on skipped files
+- **Timestamped Logs**: Stores all logs in a dedicated log directory with timestamps
 
 ## Supported Categories (Default)
 
@@ -47,12 +64,16 @@ Files are organized into the following categories:
 
 ## Installation
 
-No installation required! Simply download the `file_organizer.py` script to your computer.
-
 ### Requirements
 
 - Python 3.6 or higher
 - Standard library modules only (no external dependencies)
+
+### Setup
+
+1. Clone the repository or download the source code
+2. Make sure the script has execute permissions
+3. Run the script from the command line
 
 ## Usage
 
@@ -226,6 +247,18 @@ Skipped files:
   /home/user/Downloads/desktop.ini - Reason: in skip list
 ```
 
+## Logging
+
+The File Organizer creates timestamped log files in the `logs` directory. These logs contain detailed information about the organization process, including:
+
+- Files processed
+- Files skipped and the reasons
+- Success/failure status
+- Performance metrics
+- Errors and warnings
+
+Log files are named with a timestamp pattern: `file_organizer_YYYYMMDD_HHMMSS.log`
+
 ## Security Features
 
 - **Path Traversal Protection**: Validates that all file operations remain within the intended directory
@@ -261,8 +294,4 @@ Contributions are welcome! Please feel free to submit a Pull Request.
 
 ## Support
 
-If you encounter any issues or have questions, please file an issue on the GitHub repository. --verbose
-```
-or the shorter form:
-```bash
-python file_organizer.py
+If you encounter any issues or have questions, please file an issue on the GitHub repository.
