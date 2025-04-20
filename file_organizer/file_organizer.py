@@ -3,6 +3,9 @@ import shutil
 import argparse
 import logging
 import hashlib
+import concurrent.futures
+from pathlib import Path
+from typing import Dict, List, Set, Tuple, Union
 
 # Setup logging
 logging.basicConfig(
@@ -29,70 +32,70 @@ for category, extensions in EXTENSION_CATEGORIES.items():
         EXTENSION_TO_CATEGORY[ext] = category
 
 
-def is_safe_path(base_dir, path):
+def is_safe_path(base_dir: Union[str, Path], path: Union[str, Path]) -> bool:
     """
     Verify that a path is safe to access (within the base directory).
     Prevents directory traversal vulnerabilities.
 
     Args:
-        base_dir (str): The base directory that shouldn't be escaped
-        path (str): The path to check
+        base_dir: The base directory that shouldn't be escaped
+        path: The path to check
 
     Returns:
         bool: True if the path is safe, False otherwise
     """
     try:
-        # Convert to absolute paths
-        base_dir = os.path.abspath(base_dir)
-        path = os.path.abspath(path)
+        # Convert to Path objects and resolve to absolute paths
+        base_dir_path = Path(base_dir).resolve()
+        path_to_check = Path(path).resolve()
 
         # Check if the path is within the base directory
-        return os.path.commonpath([base_dir]) == os.path.commonpath([base_dir, path])
-    except ValueError:
+        return str(path_to_check).startswith(str(base_dir_path))
+    except (ValueError, OSError):
         # Path resolution failed, consider unsafe
         return False
 
 
-def get_secure_filename(base_path, filename):
+def get_secure_filename(base_path: Union[str, Path], filename: str) -> Path:
     """
     Generate a secure filename that doesn't exist at the destination.
     Uses a more efficient algorithm for finding available filenames.
 
     Args:
-        base_path (str): The base directory path
-        filename (str): The original filename
+        base_path: The base directory path
+        filename: The original filename
 
     Returns:
-        str: The full path to the secure filename
+        Path: The full path to the secure filename
     """
-    dest_path = os.path.join(base_path, filename)
+    base_path = Path(base_path)
+    dest_path = base_path / filename
 
-    if not os.path.exists(dest_path):
+    if not dest_path.exists():
         return dest_path
 
     # If file exists, create a new name based on the base name and extension
-    base_name, ext = os.path.splitext(filename)
+    stem = dest_path.stem
+    suffix = dest_path.suffix
 
     # Try with a simple counter first for common cases
     for i in range(1, 5):  # Try simple approach first
-        new_filename = f"{base_name}_{i}{ext}"
-        new_path = os.path.join(base_path, new_filename)
-        if not os.path.exists(new_path):
+        new_path = base_path / f"{stem}_{i}{suffix}"
+        if not new_path.exists():
             return new_path
 
     # If still conflicting, use a more unique approach with partial hash
-    file_hash = hashlib.md5(f"{base_name}{ext}{os.urandom(8)}".encode()).hexdigest()[:8]
-    new_path = os.path.join(base_path, f"{base_name}_{file_hash}{ext}")
-    return new_path
+    file_hash = hashlib.md5(f"{stem}{suffix}{os.urandom(8)}".encode()).hexdigest()[:8]
+    return base_path / f"{stem}_{file_hash}{suffix}"
 
 
-def get_file_category(extension):
+def get_file_category(extension: str) -> str:
     """
     Determine the category of a file based on its extension.
     Uses a pre-computed mapping for O(1) lookup.
 
     Args:
-        extension (str): The file extension without the dot
+        extension: The file extension without the dot
 
     Returns:
         str: The category name to use as a directory name
@@ -100,12 +103,12 @@ def get_file_category(extension):
     return EXTENSION_TO_CATEGORY.get(extension.lower(), "Misc")
 
 
-def should_skip_file(filename):
+def should_skip_file(filename: str) -> Tuple[bool, str]:
     """
     Check if a file should be skipped based on patterns.
 
     Args:
-        filename (str): The filename to check
+        filename: The filename to check
 
     Returns:
         tuple: (should_skip, reason)
@@ -122,111 +125,95 @@ def should_skip_file(filename):
     return False, ""
 
 
-def process_files_in_directory(directory, files, processed_dir, file_counts, source_dir, skipped_files):
+def process_file(args: Tuple[Path, Path, Path, Set[str]]) -> Union[Tuple[str, str], Tuple[str, Path, str]]:
     """
-    Process files in a given directory and move them to the appropriate category location.
+    Process a single file (for parallel execution).
 
     Args:
-        directory (str): Directory containing the files to process
-        files (list): List of filenames to process
-        processed_dir (str): Path to the processed directory
-        file_counts (dict): Dictionary to track file counts by category
-        source_dir (str): Source directory path (for path safety checks)
-        skipped_files (set): Set of filenames to skip
+        args: Tuple containing:
+            - file_path: Path to the file
+            - processed_dir: Path to the processed directory
+            - source_dir: Source directory path
+            - skipped_files: Set of filenames to skip
 
     Returns:
-        list: List of skipped files with reasons
+        Union[Tuple[str, str], Tuple[str, Path, str]]:
+            - On success: ("success", category)
+            - On skip/error: ("skipped", file_path, reason)
     """
-    skipped_files_list = []
+    file_path, processed_dir, source_dir, skipped_files = args
 
-    for filename in files:
+    try:
         # Skip files in the skip list
-        if filename in skipped_files:
-            logger.info(f"Skipping file: {filename} (in skip list)")
-            skipped_files_list.append((os.path.join(directory, filename), "in skip list"))
-            continue
+        if file_path.name in skipped_files:
+            return ("skipped", file_path, "in skip list")
 
         # Skip system/temporary files
-        should_skip, reason = should_skip_file(filename)
+        should_skip, reason = should_skip_file(file_path.name)
         if should_skip:
-            logger.info(f"Skipping file: {filename} ({reason})")
-            skipped_files_list.append((os.path.join(directory, filename), reason))
-            continue
-
-        file_path = os.path.join(directory, filename)
+            return ("skipped", file_path, reason)
 
         # Path safety check
         if not is_safe_path(source_dir, file_path):
-            logger.warning(f"Skipping potentially unsafe file path: {file_path}")
-            skipped_files_list.append((file_path, "security check failed"))
-            continue
+            return ("skipped", file_path, "security check failed")
+
+        # Skip non-files (shouldn't happen, but just in case)
+        if not file_path.is_file():
+            return ("skipped", file_path, "not a file")
 
         # Get file extension (without the dot)
-        _, extension = os.path.splitext(filename)
-        extension = extension[1:].lower() if extension else "no_extension"
+        extension = file_path.suffix[1:].lower() if file_path.suffix else "no_extension"
 
         # Get the category for this file
-        if extension == "no_extension":
-            category = "Misc"
-        else:
-            category = get_file_category(extension)
+        category = "Misc" if extension == "no_extension" else get_file_category(extension)
 
         # Create a directory for this file category if it doesn't exist
-        category_dir = os.path.join(processed_dir, category)
-        os.makedirs(category_dir, exist_ok=True)
+        category_dir = processed_dir / category
+        category_dir.mkdir(exist_ok=True)
 
         # Get secure destination path
-        dest_path = get_secure_filename(category_dir, filename)
+        dest_path = get_secure_filename(category_dir, file_path.name)
 
         # Move the file
-        try:
-            shutil.move(file_path, dest_path)
+        shutil.move(str(file_path), str(dest_path))
 
-            # Update file counts
-            if category in file_counts:
-                file_counts[category] += 1
-            else:
-                file_counts[category] = 1
+        # Return success with category for counting
+        return ("success", category)
 
-            logger.info(f"Moved: {filename} -> processed/{category}/{os.path.basename(dest_path)}")
-        except PermissionError:
-            logger.error(f"Error: Permission denied when moving {filename}")
-            skipped_files_list.append((file_path, "permission denied"))
-        except FileNotFoundError:
-            logger.error(f"Error: File {filename} not found during move operation")
-            skipped_files_list.append((file_path, "file not found"))
-        except OSError as e:
-            logger.error(f"Error moving {filename}: OS error - {e}")
-            skipped_files_list.append((file_path, f"OS error: {str(e)[:50]}..."))
-        except Exception as e:
-            logger.error(f"Error moving {filename}: Unexpected error - {e}")
-            skipped_files_list.append((file_path, f"unexpected error: {str(e)[:50]}..."))
-
-    return skipped_files_list
+    except PermissionError:
+        return ("skipped", file_path, "permission denied")
+    except FileNotFoundError:
+        return ("skipped", file_path, "file not found")
+    except OSError as e:
+        return ("skipped", file_path, f"OS error: {str(e)[:50]}")
+    except Exception as e:
+        return ("skipped", file_path, f"unexpected error: {str(e)[:50]}")
 
 
-def organize_files_by_category(source_dir, recursive=True):
+def organize_files_by_category(source_dir: Union[str, Path], recursive: bool = True, max_workers: int = 4) -> None:
     """
     Organize files in the source directory by their file category.
-    Each file will be moved to a subdirectory named after its category
-    within a 'processed' directory.
+    Uses parallel processing for better performance with large directories.
 
     Args:
-        source_dir (str): Path to the source directory containing files to organize
-        recursive (bool): Whether to process subdirectories recursively
+        source_dir: Path to the source directory containing files to organize
+        recursive: Whether to process subdirectories recursively
+        max_workers: Maximum number of worker threads for parallel processing
     """
-    # Convert to absolute path and check if directory exists
-    source_dir = os.path.abspath(source_dir)
-    if not os.path.exists(source_dir):
+    # Convert to Path object
+    source_dir = Path(source_dir).resolve()
+
+    # Check if directory exists
+    if not source_dir.exists():
         logger.error(f"Error: The directory '{source_dir}' does not exist.")
         return
 
     # Create the main processed directory
-    processed_dir = os.path.join(source_dir, "processed")
-    os.makedirs(processed_dir, exist_ok=True)
+    processed_dir = source_dir / "processed"
+    processed_dir.mkdir(exist_ok=True)
 
     # Dictionary to store file counts by category
-    file_counts = {}
+    file_counts: Dict[str, int] = {}
 
     # Define files to skip
     skipped_files = {
@@ -238,23 +225,75 @@ def organize_files_by_category(source_dir, recursive=True):
     }
 
     # List to track all skipped files
-    all_skipped_files = []
+    all_skipped_files: List[Tuple[Path, str]] = []
 
-    # Process files based on recursion option
+    # Create list of files to process
+    files_to_process = []
+
+    # Find all files to process
     if recursive:
-        # Recursive processing (walk through all subdirectories)
+        # Recursive approach - walk through directory tree
+        logger.info(f"Finding files to process recursively in '{source_dir}'...")
+
         for root, _, files in os.walk(source_dir):
+            root_path = Path(root)
+
             # Skip the processed directory to avoid circular processing
-            if os.path.normpath(root).startswith(os.path.normpath(processed_dir)):
+            if str(root_path).startswith(str(processed_dir)):
                 continue
 
-            skipped = process_files_in_directory(root, files, processed_dir, file_counts, source_dir, skipped_files)
-            all_skipped_files.extend(skipped)
+            for filename in files:
+                file_path = root_path / filename
+                files_to_process.append((file_path, processed_dir, source_dir, skipped_files))
     else:
-        # Non-recursive processing (only process files in the specified directory)
-        files = [f for f in os.listdir(source_dir) if os.path.isfile(os.path.join(source_dir, f))]
-        skipped = process_files_in_directory(source_dir, files, processed_dir, file_counts, source_dir, skipped_files)
-        all_skipped_files.extend(skipped)
+        # Non-recursive approach - just process files in the top directory
+        logger.info(f"Finding files to process in '{source_dir}'...")
+
+        for item in source_dir.iterdir():
+            if item.is_file():
+                files_to_process.append((item, processed_dir, source_dir, skipped_files))
+
+    total_files = len(files_to_process)
+    logger.info(f"Found {total_files} files to process")
+
+    if total_files == 0:
+        logger.info("No files to organize.")
+        return
+
+    # Process files in parallel for better performance
+    logger.info(f"Processing files using {max_workers} worker threads...")
+
+    with concurrent.futures.ThreadPoolExecutor(max_workers=max_workers) as executor:
+        # Process files and gather results
+        futures = [executor.submit(process_file, args) for args in files_to_process]
+
+        # Track progress
+        completed = 0
+
+        for future in concurrent.futures.as_completed(futures):
+            result = future.result()
+            completed += 1
+
+            # Show progress periodically
+            if completed % 10 == 0 or completed == total_files:
+                percent_done = int(completed / total_files * 100)
+                logger.info(f"Progress: {completed}/{total_files} files processed ({percent_done}%)")
+
+            # Process the result
+            if result[0] == "success":
+                # Update file counts for success
+                category = result[1]
+                file_counts[category] = file_counts.get(category, 0) + 1
+            elif result[0] == "skipped":
+                # Add to skipped files list
+                file_path, reason = result[1], result[2]
+                all_skipped_files.append((file_path, reason))
+
+                # Log skipped files with appropriate level
+                if "security check failed" in reason:
+                    logger.warning(f"Skipping file: {file_path} - Reason: {reason}")
+                else:
+                    logger.info(f"Skipping file: {file_path} - Reason: {reason}")
 
     # Print summary
     logger.info("\nOrganization complete!")
@@ -273,14 +312,14 @@ def organize_files_by_category(source_dir, recursive=True):
 
 if __name__ == "__main__":
     # Create argument parser
-    parser = argparse.ArgumentParser(description="Organize files by their category into a 'processed' directory.")
-    parser.add_argument(
-        "directory", nargs="?", default=os.getcwd(), help="The directory to organize (default: current directory)"
+    parser = argparse.ArgumentParser(
+        description="Organize files by their category into a 'processed' directory.",
+        formatter_class=argparse.ArgumentDefaultsHelpFormatter,
     )
-    parser.add_argument(
-        "-r", "--recursive", action="store_true", help="Process subdirectories recursively (default: False)"
-    )
-    parser.add_argument("-y", "--yes", action="store_true", help="Skip confirmation prompt (default: False)")
+    parser.add_argument("directory", nargs="?", default=os.getcwd(), help="The directory to organize")
+    parser.add_argument("-r", "--recursive", action="store_true", help="Process subdirectories recursively")
+    parser.add_argument("-y", "--yes", action="store_true", help="Skip confirmation prompt")
+    parser.add_argument("-w", "--workers", type=int, default=4, help="Number of parallel workers")
     parser.add_argument("-v", "--verbose", action="store_true", help="Increase output verbosity")
 
     # Parse arguments
@@ -293,6 +332,7 @@ if __name__ == "__main__":
     # Display information about the operation
     recursive_str = "recursively " if args.recursive else ""
     logger.info(f"This will organize all files {recursive_str}in '{args.directory}' into category subdirectories.")
+    logger.info(f"Using {args.workers} worker threads for parallel processing.")
 
     # Confirm with user unless --yes flag is used
     if args.yes:
@@ -301,6 +341,6 @@ if __name__ == "__main__":
         confirmation = input("Continue? (y/n): ")
 
     if confirmation.lower() in ["y", "yes"]:
-        organize_files_by_category(args.directory, args.recursive)
+        organize_files_by_category(args.directory, args.recursive, args.workers)
     else:
         logger.info("Operation cancelled.")
