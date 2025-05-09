@@ -1,6 +1,8 @@
 #!/usr/bin/env python3
 """
-File sorter that identifies audio and video files based on file signatures and moves them to appropriate folders.
+File sorter that identifies audio and video files based on file signatures,
+moves them to appropriate folders, and corrects file extensions in both directions
+(MP3 → MP4 and MP4 → MP3).
 """
 
 import shutil
@@ -52,22 +54,42 @@ def get_file_signature(file_path):
 def sort_files(source_folder, create_unknown_folder=False):
     """
     Sort files from source folder into video and audio subdirectories based on file signatures.
+    Corrects file extensions to match the actual file type in both directions.
 
     Args:
         source_folder: Path to the folder containing files to be sorted
         create_unknown_folder: Whether to create a folder for files of unknown type
     """
-    source_path = Path(source_folder)
+    source_path = Path(source_folder).resolve()
+    print(f"Processing files in: {source_path}")
 
-    # Create destination folders if they don't exist
+    # Verify the source directory exists
+    if not source_path.exists():
+        print(f"Error: Source directory '{source_path}' does not exist.")
+        return
+
+    if not source_path.is_dir():
+        print(f"Error: '{source_path}' is not a directory.")
+        return
+
+    # Create destination folders WITHIN the source directory
     audio_folder = source_path / "audio"
     video_folder = source_path / "video"
-    audio_folder.mkdir(exist_ok=True)
-    video_folder.mkdir(exist_ok=True)
+
+    # Create folders with parents=True to handle missing parent directories
+    audio_folder.mkdir(exist_ok=True, parents=True)
+    video_folder.mkdir(exist_ok=True, parents=True)
+
+    print(f"Created audio directory: {audio_folder}")
+    print(f"Created video directory: {video_folder}")
 
     if create_unknown_folder:
         unknown_folder = source_path / "unknown"
-        unknown_folder.mkdir(exist_ok=True)
+        unknown_folder.mkdir(exist_ok=True, parents=True)
+        print(f"Created unknown directory: {unknown_folder}")
+
+    # Keep track of processed files
+    files_processed = 0
 
     # Process all files in the source folder (not recursively)
     for item in source_path.iterdir():
@@ -78,7 +100,7 @@ def sort_files(source_folder, create_unknown_folder=False):
             continue
 
         # Skip files that are already in our destination folders
-        if item.parent in (audio_folder, video_folder):
+        if any(str(item).startswith(str(folder)) for folder in [audio_folder, video_folder]):
             continue
 
         print(f"Analyzing {item.name}...")
@@ -87,17 +109,35 @@ def sort_files(source_folder, create_unknown_folder=False):
         # Determine destination based on file type
         if file_type == "mp3":
             dest_folder = audio_folder
+            correct_extension = ".mp3"
         elif file_type == "mp4":
             dest_folder = video_folder
+            correct_extension = ".mp4"
         else:
             if create_unknown_folder:
                 dest_folder = unknown_folder
+                correct_extension = item.suffix  # Keep original extension for unknown types
             else:
                 print(f"Skipping file of unknown type: {item.name}")
                 continue
 
-        # Move the file
-        dest_file = dest_folder / item.name
+        # Check if we have a mismatch between file extension and actual content type
+        current_extension = item.suffix.lower()
+        extension_mismatch = current_extension != correct_extension
+
+        # Common mislabeling patterns to check
+        mp3_as_mp4 = file_type == "mp3" and current_extension == ".mp4"
+        mp4_as_mp3 = file_type == "mp4" and current_extension == ".mp3"
+
+        if extension_mismatch:
+            new_filename = f"{item.stem}{correct_extension}"
+            mismatch_type = "MP3 saved as MP4" if mp3_as_mp4 else "MP4 saved as MP3" if mp4_as_mp3 else "extension"
+            print(f"Detected {mismatch_type} mismatch: Renaming {item.name} to {new_filename}")
+        else:
+            new_filename = item.name
+
+        # Move the file with possibly corrected name
+        dest_file = dest_folder / new_filename
 
         # Handle filename conflicts
         if dest_file.exists():
@@ -110,15 +150,24 @@ def sort_files(source_folder, create_unknown_folder=False):
                 count += 1
 
         try:
-            shutil.move(item, dest_file)
-            print(f"Moved '{item.name}' to {dest_folder.name}/ folder")
+            # Use shutil.move which actually moves the file (not copies)
+            shutil.move(str(item), str(dest_file))
+            files_processed += 1
+
+            # Provide clear feedback about the operation
+            operation = "Moved and renamed" if item.name != dest_file.name else "Moved"
+            print(f"{operation} '{item.name}' to {dest_folder.name}/{dest_file.name}")
         except Exception as e:
             print(f"Error moving {item.name}: {e}")
+
+    print(f"\nSummary: {files_processed} files processed and moved to subdirectories")
 
 
 def main():
     """Process command line arguments and initiate file sorting."""
-    parser = argparse.ArgumentParser(description="Sort media files based on their actual content signature.")
+    parser = argparse.ArgumentParser(
+        description="Sort media files based on content signature and correct extensions in both directions."
+    )
     parser.add_argument("folder", help="Folder containing files to be sorted")
     parser.add_argument("--unknown", action="store_true", help="Create folder for unknown file types")
     args = parser.parse_args()
