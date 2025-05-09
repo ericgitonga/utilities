@@ -46,7 +46,7 @@ python mpeg_sorter.py /path/to/your/media/folder [--unknown]
 ### Options
 
 - `folder`: Path to the directory containing the media files to sort (required)
-- `--unknown`: Creates an "unknown" subdirectory for files that can't be identified (optional)
+- `--no-unknown`: Do not create an "unknown" subdirectory (by default, unknown files are moved to an "unknown" folder)
 - `--workers`: Maximum number of concurrent workers to use (default: uses CPU count)
 - `--sequential`: Use single-threaded sequential processing (for benchmarking)
 
@@ -56,8 +56,8 @@ python mpeg_sorter.py /path/to/your/media/folder [--unknown]
 # Sort all files in the current directory
 python mpeg_sorter.py .
 
-# Sort files in a specific directory and handle unknown file types
-python mpeg_sorter.py ~/Music/unsorted --unknown
+# Sort files in a specific directory but skip unknown file types
+python mpeg_sorter.py ~/Music/unsorted --no-unknown
 
 # Process files with a specific number of worker threads
 python mpeg_sorter.py ~/Music/large_collection --workers 8
@@ -69,7 +69,7 @@ python mpeg_sorter.py ~/Music/benchmark_folder --sequential
 ## Output
 
 The script will:
-1. Create `audio/` and `video/` subdirectories in the specified folder
+1. Create `audio/`, `video/`, and `unknown/` subdirectories in the specified folder
 2. Analyze each file to determine its actual type
 3. Move files to the appropriate subdirectory using parallel processing
 4. Correct file extensions if they don't match the content

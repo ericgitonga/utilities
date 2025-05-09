@@ -147,14 +147,14 @@ def process_file(item, audio_folder, video_folder, unknown_folder=None, create_u
     return result
 
 
-async def sort_files_async(source_folder, create_unknown_folder=False, max_workers=None):
+async def sort_files_async(source_folder, create_unknown_folder=True, max_workers=None):
     """
     Sort files asynchronously from source folder into video and audio subdirectories
     based on file signatures. Uses a thread pool to process files in parallel.
 
     Args:
         source_folder: Path to the folder containing files to be sorted
-        create_unknown_folder: Whether to create a folder for files of unknown type
+        create_unknown_folder: Whether to create a folder for files of unknown type (default: True)
         max_workers: Maximum number of concurrent workers (default: None, uses CPU count)
 
     Returns:
@@ -286,27 +286,27 @@ async def sort_files_async(source_folder, create_unknown_folder=False, max_worke
     return stats
 
 
-def sort_files(source_folder, create_unknown_folder=False, max_workers=None):
+def sort_files(source_folder, create_unknown_folder=True, max_workers=None):
     """
     Wrapper function to call the async version from synchronous code.
 
     Args:
         source_folder: Path to the folder containing files to be sorted
-        create_unknown_folder: Whether to create a folder for files of unknown type
+        create_unknown_folder: Whether to create a folder for files of unknown type (default: True)
         max_workers: Maximum number of concurrent workers
     """
     loop = asyncio.get_event_loop()
     return loop.run_until_complete(sort_files_async(source_folder, create_unknown_folder, max_workers))
 
 
-def sort_files_sequential(source_folder, create_unknown_folder=False):
+def sort_files_sequential(source_folder, create_unknown_folder=True):
     """
     Sort files sequentially (single-threaded) from source folder into video and audio subdirectories.
     This function uses the original non-parallel implementation for benchmark comparison.
 
     Args:
         source_folder: Path to the folder containing files to be sorted
-        create_unknown_folder: Whether to create a folder for files of unknown type
+        create_unknown_folder: Whether to create a folder for files of unknown type (default: True)
 
     Returns:
         Dict with summary statistics of the operation
@@ -455,7 +455,9 @@ def main():
         description="Sort media files based on content signature and correct extensions in both directions."
     )
     parser.add_argument("folder", help="Folder containing files to be sorted")
-    parser.add_argument("--unknown", action="store_true", help="Create folder for unknown file types")
+    parser.add_argument(
+        "--no-unknown", action="store_true", help="Do not create a folder for unknown file types (they will be skipped)"
+    )
     parser.add_argument(
         "--workers", type=int, default=None, help="Maximum number of concurrent workers (default: CPU count)"
     )
@@ -464,15 +466,18 @@ def main():
     )
     args = parser.parse_args()
 
+    # Invert the flag since we've changed the default
+    create_unknown_folder = not args.no_unknown
+
     if args.sequential:
         # Use the sequential (single-threaded) processing method
         print("Using sequential processing mode for benchmarking")
-        sort_files_sequential(args.folder, args.unknown)
+        sort_files_sequential(args.folder, create_unknown_folder)
     else:
         # Use the parallel processing method
         workers = args.workers
         print(f"Using parallel processing mode with {'auto-detected' if workers is None else workers} workers")
-        sort_files(args.folder, args.unknown, workers)
+        sort_files(args.folder, create_unknown_folder, workers)
 
     print("File sorting complete!")
 
