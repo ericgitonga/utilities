@@ -1,117 +1,97 @@
-# README
+# MPEG Sorter
 
-Copyright © 2025 Eric Gitonga. All rights reserved.  
-This document is licensed under the MIT License.
+A Python utility that identifies and sorts media files based on their actual file signatures rather than extensions.
+
+Copyright © 2025 Eric Gitonga. MIT License.
 
 ## Description
 
-MPEG Sorter analyzes files using their binary signatures ("magic bytes") to identify their true file types, regardless of their file extensions. It then sorts the files into appropriate subdirectories and corrects any mismatched extensions.
-
-Specifically designed to handle:
-- MP3 files incorrectly saved with `.mp4` extensions
-- MP4 files incorrectly saved with `.mp3` extensions
-- Properly labeled media files that just need organization
+MPEG Sorter analyzes files using their binary signatures ("magic bytes") to identify their true file types, regardless of the file extension. It specifically targets MP3 and MP4 files that may have incorrect extensions and organizes them into appropriate directories based on their actual content.
 
 ## Features
 
-- **Signature-based identification**: Uses file headers rather than extensions to determine file types
-- **Automatic sorting**: Moves files to appropriate subdirectories (`audio/` or `video/`)
-- **Extension correction**: Renames files to match their actual content type (`.mp3` or `.mp4`)
-- **Conflict resolution**: Handles duplicate filenames automatically
-- **Detailed logging**: Provides clear feedback about each operation
-- **Parallel processing**: Uses asynchronous execution for significantly faster performance
-- **Progress tracking**: Shows real-time progress during file processing
-- **Performance metrics**: Reports processing speed and operation statistics
-- **Benchmarking mode**: Includes sequential processing option for performance comparison
+- **Content-based identification**: Uses file signatures to detect actual file types regardless of extension
+- **Automatic correction**: Renames files to match their actual content type
+- **Efficient organization**: Sorts files into appropriate audio and video directories
+- **Parallel processing**: Uses asynchronous multi-threading for fast processing of large directories
+- **Sequential mode option**: Provides single-threaded processing for benchmarking or troubleshooting
+- **Unknown file handling**: Automatically moves unrecognized files to a separate directory
+- **Verbose logging**: Detailed output of actions performed on each file
 
 ## Installation
 
-No additional dependencies are required beyond the Python standard library.
+1. Clone the repository:
+   ```
+   git clone https://github.com/yourusername/mpeg-sorter.git
+   cd mpeg-sorter
+   ```
 
-```bash
-# Clone the repository (or download the script)
-git clone https://github.com/yourusername/mpeg-sorter.git
-cd mpeg-sorter
-
-# Make the script executable
-chmod +x mpeg_sorter.py
-```
+2. No additional dependencies required beyond Python 3.6+ standard library.
 
 ## Usage
 
-```bash
-python mpeg_sorter.py /path/to/your/media/folder [--unknown]
+```
+python mpeg_sorter.py [source_folder] [options]
 ```
 
 ### Options
 
-- `folder`: Path to the directory containing the media files to sort (required)
-- `--no-unknown`: Do not create an "unknown" subdirectory (by default, unknown files are moved to an "unknown" folder)
-- `--workers`: Maximum number of concurrent workers to use (default: uses CPU count)
-- `--sequential`: Use single-threaded sequential processing (for benchmarking)
+- `--sequential`: Run in single-threaded mode (slower but useful for debugging)
+- `--no-unknown`: Do not create an "unknown" directory for unrecognized files
+- `--workers N`: Specify the number of worker threads (default: number of CPU cores)
 
-## Examples
+### Examples
 
-```bash
-# Sort all files in the current directory
+Process all files in the current directory:
+```
 python mpeg_sorter.py .
+```
 
-# Sort files in a specific directory but skip unknown file types
-python mpeg_sorter.py ~/Music/unsorted --no-unknown
+Process files in a specific directory with parallel processing (default):
+```
+python mpeg_sorter.py /path/to/media/files
+```
 
-# Process files with a specific number of worker threads
-python mpeg_sorter.py ~/Music/large_collection --workers 8
+Process files sequentially (single-threaded):
+```
+python mpeg_sorter.py /path/to/media/files --sequential
+```
 
-# Run in single-threaded mode for benchmarking
-python mpeg_sorter.py ~/Music/benchmark_folder --sequential
+Process files with a specific number of worker threads:
+```
+python mpeg_sorter.py /path/to/media/files --workers 4
 ```
 
 ## Output
 
-The script will:
-1. Create `audio/`, `video/`, and `unknown/` subdirectories in the specified folder
-2. Analyze each file to determine its actual type
-3. Move files to the appropriate subdirectory using parallel processing
-4. Correct file extensions if they don't match the content
-5. Show real-time progress for large operations
-6. Print a detailed summary with performance metrics
-7. Report statistics including processing speed (files per second)
+The script creates the following directory structure within the source directory:
+
+```
+source_directory/
+├── audio/         # All files with audio signatures (.mp3, etc.)
+├── video/         # All files with video signatures (.mp4, etc.)
+└── unknown/       # Files with unrecognized signatures (optional)
+```
+
+Each file is moved to the appropriate directory and renamed if its extension doesn't match its content.
 
 ## Testing
 
-The MPEG Sorter includes a comprehensive test suite that validates functionality and provides performance benchmarking:
+The project includes a comprehensive test suite that verifies all functionality:
 
-```bash
-# Run the standard test script (from project root)
-python tests/test_mpeg_sorter.py
+```
+# Run all tests
+pytest
 
-# Force command-line script testing (useful if import fails)
-python tests/test_mpeg_sorter.py --command-line
+# Run specific test in parallel mode
+pytest -xvs test_mpeg_sorter_pytest.py::test_parallel_processing
 
-# For detailed output
-python tests/test_mpeg_sorter.py --verbose
+# Run specific test in sequential mode
+pytest -xvs test_mpeg_sorter_pytest.py::test_sequential_processing
 ```
 
-### Integration with pytest
-
-For pytest integration, the project includes a dedicated pytest-compatible test file:
-
-```bash
-# Run the pytest-specific tests (recommended)
-pytest tests/test_mpeg_sorter_pytest.py -v
-
-# Run specific tests only
-pytest tests/test_mpeg_sorter_pytest.py::test_command_line_sequential -v
-
-# Run with test selection by keyword
-pytest tests/test_mpeg_sorter_pytest.py -v -k "command"
-```
-
-The test suite automatically:
-- Creates sample media files with various signatures
-- Tests both sequential and parallel processing modes
-- Validates correct file sorting and extension correction
-- Reports performance metrics and speedup comparison
-- Restores the test environment after completion
-
-See the Technical Documentation for detailed testing information.
+The test framework automatically:
+1. Creates a test environment with sample files
+2. Runs the sorter in both parallel and sequential modes
+3. Verifies correct file sorting and renaming
+4. Restores the original file structure for easy re-testing
