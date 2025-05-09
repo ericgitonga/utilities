@@ -1,50 +1,4 @@
-## Testing
-
-The MPEG Sorter includes a comprehensive test suite that validates functionality and provides performance benchmarking:
-
-```bash
-# Run the standard test script (from project root)
-python tests/test_mpeg_sorter.py
-
-# Force command-line script testing (useful if import fails)
-python tests/test_mpeg_sorter.py --command-line
-
-# For detailed output
-python tests/test_mpeg_sorter.py --verbose
-```
-
-### Integration with pytest
-
-For pytest integration, the project includes a dedicated pytest-compatible test file:
-
-```bash
-# Run the pytest-specific tests (recommended)
-pytest tests/test_mpeg_sorter_pytest.py -v
-
-# Run specific tests only
-pytest tests/test_mpeg_sorter_pytest.py::test_command_line_sequential -v
-
-# Run with test selection by keyword
-pytest tests/test_mpeg_sorter_pytest.py -v -k "command"
-```
-
-The test suite automatically:
-- Creates sample media files with various signatures
-- Tests both sequential and parallel processing modes
-- Validates correct file sorting and extension correction
-- Reports performance metrics and speedup comparison
-- Restores the test environment after completion
-
-See the Technical Documentation for detailed testing information.
-
-The test suite automatically:
-- Creates sample media files with various signatures
-- Tests both sequential and parallel processing modes
-- Validates correct file sorting and extension correction
-- Reports performance metrics and speedup comparison
-- Restores the test environment after completion
-
-See the Technical Documentation for detailed testing information.# README
+# README
 
 Copyright © 2025 Eric Gitonga. All rights reserved.  
 This document is licensed under the MIT License.
@@ -122,3 +76,42 @@ The script will:
 5. Show real-time progress for large operations
 6. Print a detailed summary with performance metrics
 7. Report statistics including processing speed (files per second)
+
+## Testing
+
+The MPEG Sorter includes a comprehensive test suite that validates functionality and provides performance benchmarking:
+
+```bash
+# Run the standard test script (from project root)
+python tests/test_mpeg_sorter.py
+
+# Force command-line script testing (useful if import fails)
+python tests/test_mpeg_sorter.py --command-line
+
+# For detailed output
+python tests/test_mpeg_sorter.py --verbose
+```
+
+### Integration with pytest
+
+For pytest integration, the project includes a dedicated pytest-compatible test file:
+
+```bash
+# Run the pytest-specific tests (recommended)
+pytest tests/test_mpeg_sorter_pytest.py -v
+
+# Run specific tests only
+pytest tests/test_mpeg_sorter_pytest.py::test_command_line_sequential -v
+
+# Run with test selection by keyword
+pytest tests/test_mpeg_sorter_pytest.py -v -k "command"
+```
+
+The test suite automatically:
+- Creates sample media files with various signatures
+- Tests both sequential and parallel processing modes
+- Validates correct file sorting and extension correction
+- Reports performance metrics and speedup comparison
+- Restores the test environment after completion
+
+See the Technical Documentation for detailed testing information.
