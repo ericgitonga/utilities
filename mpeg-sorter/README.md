@@ -19,6 +19,9 @@ Specifically designed to handle:
 - **Extension correction**: Renames files to match their actual content type (`.mp3` or `.mp4`)
 - **Conflict resolution**: Handles duplicate filenames automatically
 - **Detailed logging**: Provides clear feedback about each operation
+- **Parallel processing**: Uses asynchronous execution for significantly faster performance
+- **Progress tracking**: Shows real-time progress during file processing
+- **Performance metrics**: Reports processing speed and operation statistics
 
 ## Installation
 
@@ -43,6 +46,7 @@ python mpeg_sorter.py /path/to/your/media/folder [--unknown]
 
 - `folder`: Path to the directory containing the media files to sort (required)
 - `--unknown`: Creates an "unknown" subdirectory for files that can't be identified (optional)
+- `--workers`: Maximum number of concurrent workers to use (default: uses CPU count)
 
 ## Examples
 
@@ -52,6 +56,9 @@ python mpeg_sorter.py .
 
 # Sort files in a specific directory and handle unknown file types
 python mpeg_sorter.py ~/Music/unsorted --unknown
+
+# Process files with a specific number of worker threads
+python mpeg_sorter.py ~/Music/large_collection --workers 8
 ```
 
 ## Output
@@ -59,6 +66,8 @@ python mpeg_sorter.py ~/Music/unsorted --unknown
 The script will:
 1. Create `audio/` and `video/` subdirectories in the specified folder
 2. Analyze each file to determine its actual type
-3. Move files to the appropriate subdirectory
+3. Move files to the appropriate subdirectory using parallel processing
 4. Correct file extensions if they don't match the content
-5. Print a summary of the operations performed
+5. Show real-time progress for large operations
+6. Print a detailed summary with performance metrics
+7. Report statistics including processing speed (files per second)
