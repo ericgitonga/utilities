@@ -220,7 +220,6 @@ async def sort_files_async(source_folder, create_unknown_folder=False, max_worke
     }
 
     # Process files concurrently using ThreadPoolExecutor
-    loop = asyncio.get_event_loop()
     processed = 0
 
     with ThreadPoolExecutor(max_workers=max_workers) as executor:
@@ -243,9 +242,8 @@ async def sort_files_async(source_folder, create_unknown_folder=False, max_worke
             if total_files <= 100 or processed % 20 == 0 or "error" in result:
                 if result["success"]:
                     operation = "Moved and renamed" if result["new_name"] != result["filename"] else "Moved"
-                    print(
-                        f"{operation} '{result['filename']}' to {os.path.basename(result['destination'])}/{result['new_name']}"
-                    )
+                    dest_folder_name = os.path.basename(result["destination"])
+                    print(f"{operation} '{result['filename']}' to {dest_folder_name}/{result['new_name']}")
                 elif result.get("error"):
                     print(f"Error processing {result['filename']}: {result['error']}")
                 elif "skipped" in result.get("operation", ""):
@@ -301,6 +299,156 @@ def sort_files(source_folder, create_unknown_folder=False, max_workers=None):
     return loop.run_until_complete(sort_files_async(source_folder, create_unknown_folder, max_workers))
 
 
+def sort_files_sequential(source_folder, create_unknown_folder=False):
+    """
+    Sort files sequentially (single-threaded) from source folder into video and audio subdirectories.
+    This function uses the original non-parallel implementation for benchmark comparison.
+
+    Args:
+        source_folder: Path to the folder containing files to be sorted
+        create_unknown_folder: Whether to create a folder for files of unknown type
+
+    Returns:
+        Dict with summary statistics of the operation
+    """
+    start_time = time.time()
+    source_path = Path(source_folder).resolve()
+    print(f"Processing files sequentially in: {source_path}")
+
+    # Verify the source directory exists
+    if not source_path.exists():
+        print(f"Error: Source directory '{source_path}' does not exist.")
+        return {"error": "Source directory does not exist"}
+
+    if not source_path.is_dir():
+        print(f"Error: '{source_path}' is not a directory.")
+        return {"error": "Source path is not a directory"}
+
+    # Create destination folders WITHIN the source directory
+    audio_folder = source_path / "audio"
+    video_folder = source_path / "video"
+    unknown_folder = None
+
+    # Create folders with parents=True to handle missing parent directories
+    audio_folder.mkdir(exist_ok=True, parents=True)
+    video_folder.mkdir(exist_ok=True, parents=True)
+
+    print(f"Created audio directory: {audio_folder}")
+    print(f"Created video directory: {video_folder}")
+
+    if create_unknown_folder:
+        unknown_folder = source_path / "unknown"
+        unknown_folder.mkdir(exist_ok=True, parents=True)
+        print(f"Created unknown directory: {unknown_folder}")
+
+    # Stats to track results
+    stats = {
+        "total_files": 0,
+        "processed": 0,
+        "success": 0,
+        "errors": 0,
+        "skipped": 0,
+        "mp3_files": 0,
+        "mp4_files": 0,
+        "unknown_files": 0,
+        "renamed_extensions": 0,
+    }
+
+    # Process all files in the source folder (not recursively)
+    for item in source_path.iterdir():
+        if not item.is_file():
+            continue
+
+        if item.name.startswith("."):  # Skip hidden files
+            continue
+
+        # Skip files that are already in our destination folders
+        if any(str(item).startswith(str(folder)) for folder in [audio_folder, video_folder, unknown_folder]):
+            continue
+
+        stats["total_files"] += 1
+        print(f"Analyzing {item.name}...")
+        file_type = get_file_signature(item)
+
+        # Determine destination based on file type
+        if file_type == "mp3":
+            dest_folder = audio_folder
+            correct_extension = ".mp3"
+            stats["mp3_files"] += 1
+        elif file_type == "mp4":
+            dest_folder = video_folder
+            correct_extension = ".mp4"
+            stats["mp4_files"] += 1
+        else:
+            if create_unknown_folder:
+                dest_folder = unknown_folder
+                correct_extension = item.suffix  # Keep original extension for unknown types
+                stats["unknown_files"] += 1
+            else:
+                print(f"Skipping file of unknown type: {item.name}")
+                stats["skipped"] += 1
+                continue
+
+        # Check if we have a mismatch between file extension and actual content type
+        current_extension = item.suffix.lower()
+        extension_mismatch = current_extension != correct_extension
+
+        # Common mislabeling patterns to check
+        mp3_as_mp4 = file_type == "mp3" and current_extension == ".mp4"
+        mp4_as_mp3 = file_type == "mp4" and current_extension == ".mp3"
+
+        if extension_mismatch:
+            new_filename = f"{item.stem}{correct_extension}"
+            mismatch_type = "MP3 saved as MP4" if mp3_as_mp4 else "MP4 saved as MP3" if mp4_as_mp3 else "extension"
+            print(f"Detected {mismatch_type} mismatch: Renaming {item.name} to {new_filename}")
+            stats["renamed_extensions"] += 1
+        else:
+            new_filename = item.name
+
+        # Move the file with possibly corrected name
+        dest_file = dest_folder / new_filename
+
+        # Handle filename conflicts
+        if dest_file.exists():
+            base_name = dest_file.stem
+            extension = dest_file.suffix
+            count = 1
+            while dest_file.exists():
+                new_name = f"{base_name}_{count}{extension}"
+                dest_file = dest_folder / new_name
+                count += 1
+
+        try:
+            # Use shutil.move which actually moves the file (not copies)
+            shutil.move(str(item), str(dest_file))
+            stats["success"] += 1
+            stats["processed"] += 1
+
+            # Provide clear feedback about the operation
+            operation = "Moved and renamed" if item.name != dest_file.name else "Moved"
+            print(f"{operation} '{item.name}' to {dest_folder.name}/{dest_file.name}")
+        except Exception as e:
+            print(f"Error moving {item.name}: {e}")
+            stats["errors"] += 1
+            stats["processed"] += 1
+
+    # Calculate elapsed time
+    elapsed_time = time.time() - start_time
+    stats["elapsed_time"] = elapsed_time
+    stats["files_per_second"] = stats["processed"] / elapsed_time if elapsed_time > 0 else 0
+
+    print(f"\nSummary: {stats['processed']} files processed in {elapsed_time:.2f} seconds")
+    print(f"  - {stats['mp3_files']} MP3 files moved to audio folder")
+    print(f"  - {stats['mp4_files']} MP4 files moved to video folder")
+    print(f"  - {stats['unknown_files']} files of unknown type")
+    print(f"  - {stats['renamed_extensions']} files had extensions corrected")
+    print(f"  - {stats['skipped']} files skipped")
+    print(f"  - {stats['errors']} errors encountered")
+    print(f"Performance: {stats['files_per_second']:.2f} files/second")
+
+    return stats
+
+
 def main():
     """Process command line arguments and initiate file sorting."""
     parser = argparse.ArgumentParser(
@@ -311,9 +459,21 @@ def main():
     parser.add_argument(
         "--workers", type=int, default=None, help="Maximum number of concurrent workers (default: CPU count)"
     )
+    parser.add_argument(
+        "--sequential", action="store_true", help="Use single-threaded sequential processing (for benchmarking)"
+    )
     args = parser.parse_args()
 
-    sort_files(args.folder, args.unknown, args.workers)
+    if args.sequential:
+        # Use the sequential (single-threaded) processing method
+        print("Using sequential processing mode for benchmarking")
+        sort_files_sequential(args.folder, args.unknown)
+    else:
+        # Use the parallel processing method
+        workers = args.workers
+        print(f"Using parallel processing mode with {'auto-detected' if workers is None else workers} workers")
+        sort_files(args.folder, args.unknown, workers)
+
     print("File sorting complete!")
 
 

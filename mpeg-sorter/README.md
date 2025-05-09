@@ -22,6 +22,7 @@ Specifically designed to handle:
 - **Parallel processing**: Uses asynchronous execution for significantly faster performance
 - **Progress tracking**: Shows real-time progress during file processing
 - **Performance metrics**: Reports processing speed and operation statistics
+- **Benchmarking mode**: Includes sequential processing option for performance comparison
 
 ## Installation
 
@@ -47,6 +48,7 @@ python mpeg_sorter.py /path/to/your/media/folder [--unknown]
 - `folder`: Path to the directory containing the media files to sort (required)
 - `--unknown`: Creates an "unknown" subdirectory for files that can't be identified (optional)
 - `--workers`: Maximum number of concurrent workers to use (default: uses CPU count)
+- `--sequential`: Use single-threaded sequential processing (for benchmarking)
 
 ## Examples
 
@@ -59,6 +61,9 @@ python mpeg_sorter.py ~/Music/unsorted --unknown
 
 # Process files with a specific number of worker threads
 python mpeg_sorter.py ~/Music/large_collection --workers 8
+
+# Run in single-threaded mode for benchmarking
+python mpeg_sorter.py ~/Music/benchmark_folder --sequential
 ```
 
 ## Output
