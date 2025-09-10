@@ -1,65 +1,69 @@
 import os
 from PIL import Image
+from dotenv import load_dotenv
 
 
-def process_images(input_directory, output_directory):
+def process_images_in_directory(input_directory, output_directory):
     """
-    Reads all PNG files from a directory, converts them to JPG,
-    resizes them to 1800x1200 pixels, and saves them to a new folder.
+    Reads all PNG files from a given directory, converts them to JPG,
+    resizes them to 1800x1200 pixels, and saves them in a new directory.
 
     Args:
-        input_directory (str): The path to the directory containing the PNG files.
-        output_directory (str): The path to the directory where the processed JPG files will be saved.
+        input_directory (str): The path to the folder containing the PNG images.
+        output_directory (str): The path to the folder where the processed JPG images will be saved.
     """
-    # Create the output directory if it doesn't exist
+    # Check if the source directory exists
+    if not os.path.isdir(input_directory):
+        print(f"Error: The source directory '{input_directory}' does not exist.")
+        return
+
+    # Create the output directory if it does not already exist.
     if not os.path.exists(output_directory):
         os.makedirs(output_directory)
         print(f"Created directory: {output_directory}")
 
-    # Loop through all files in the input directory
-    for filename in os.listdir(input_directory):
-        if filename.endswith(".png"):
-            try:
-                # Construct the full file paths
-                input_path = os.path.join(input_directory, filename)
-                output_filename = os.path.splitext(filename)[0] + ".jpg"
-                output_path = os.path.join(output_directory, output_filename)
+    # Get a list of all files in the input directory.
+    files = os.listdir(input_directory)
 
-                # Open the PNG image
+    for file_name in files:
+        # Check if the file is a PNG image.
+        if file_name.lower().endswith(".png"):
+            input_path = os.path.join(input_directory, file_name)
+
+            # Open the image file.
+            try:
                 with Image.open(input_path) as img:
-                    # Convert the image to RGB mode to handle transparency
+                    # Convert the image to RGB mode to ensure JPG compatibility.
                     rgb_img = img.convert("RGB")
 
-                    # Resize the image
+                    # Resize the image to the desired dimensions.
                     resized_img = rgb_img.resize((1800, 1200))
 
-                    # Save the resized image as a JPG
+                    # Create the new file name with a .jpg extension.
+                    base_name = os.path.splitext(file_name)[0]
+                    output_path = os.path.join(output_directory, f"{base_name}.jpg")
+
+                    # Save the resized image as a JPG file.
                     resized_img.save(output_path, "jpeg")
-                    print(f"Processed and saved: {output_path}")
+                    print(f"Successfully processed {file_name}")
 
             except Exception as e:
-                print(f"Error processing {filename}: {e}")
+                print(f"Could not process {file_name}. Reason: {e}")
+
+    print("\nImage processing complete.")
 
 
 if __name__ == "__main__":
-    # --- Configuration ---
-    # Set the path to the directory containing your PNG files
-    input_folder = "test"
-    # Set the path for the new directory to save the JPG files
-    output_folder = "test/jpg"
+    # Load environment variables from the .env file in the same directory
+    load_dotenv()
 
-    # --- Run the script ---
-    # Create a dummy input directory and a sample PNG file for demonstration if they don't exist
-    if not os.path.exists(input_folder):
-        os.makedirs(input_folder)
-        try:
-            from PIL import Image
+    # Retrieve the folder paths from the environment variables
+    source_folder = os.getenv("SOURCE_FOLDER")
+    destination_folder = os.getenv("DESTINATION_FOLDER")
 
-            dummy_image = Image.new("RGBA", (200, 200), (255, 0, 0, 255))
-            dummy_image.save(os.path.join(input_folder, "sample.png"))
-            print(f"Created a sample input directory and image at: {input_folder}")
-        except ImportError:
-            print("Pillow is not installed. Cannot create a dummy image.")
-
-    process_images(input_folder, output_folder)
-    print("\nImage processing complete.")
+    # Check if the variables were loaded correctly
+    if not source_folder or not destination_folder:
+        print("Error: Please make sure you have created a .env file in the same directory as the script")
+        print("and that it contains the SOURCE_FOLDER and DESTINATION_FOLDER variables.")
+    else:
+        process_images_in_directory(source_folder, destination_folder)
